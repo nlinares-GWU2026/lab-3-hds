@@ -1,0 +1,6 @@
+name: lab-3-hds
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pandas=2.2
