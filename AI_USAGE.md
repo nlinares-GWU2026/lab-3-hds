@@ -186,6 +186,7 @@ git push
 ```
 
 Run the script and paste the output, or just your answers to the four decisions. Once they're settled, we write `clean_samples_regex.py` one field at a time, starting with the easy ones (ID, sex, site) and ending with dates and glucose.
+
 **How I verified:** I manually examined the output of the code:
 ```
 explore_samples.py
