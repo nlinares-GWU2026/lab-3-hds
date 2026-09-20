@@ -43,7 +43,8 @@ def clean_sex(raw):
     if re.fullmatch(r"f(emale)?", s):
         return "F"
     if re.fullmatch(r"(u|unknown)?", s):
-        return None
+        return "U"
+    return None
 
 # Maps inconsistent enrollment site labels into a uniform format
 # Regex: (r"site[\s_-]*([abc])")
