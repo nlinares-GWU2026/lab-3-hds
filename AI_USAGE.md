@@ -255,3 +255,128 @@ glucose_unit
 mg/dl          44.0  75.4  166.1  249.3
 mmol/l         12.0  74.9  145.6  249.2
 ```
+
+## Entry 4:
+**Model:** Claude (Sonnet 5)
+**What I was doing:** I needed help writing a cleaner regex code script after making my assumptions on what the data is truly trying to show. I examined the numbers of how many formats appeared per group. 
+**What I asked first:** Can you help me write a cleaner regex code script with the following assumptions on the data:
+1. Collapse male/M/m and female/F/f into a fixed set and collapse all other unknown/U/'' into "U" for those not recorded (understanding unknown and not recorded are two different things).
+2. Turn the enrollment site into a fixed casing with no spacing.
+3. First convert any mmol/L into mg/dL to see if it exceeds the 250 cap mark specified in the script (no glucose reading should be in the thousands - deduced that the units were input wrong) and fix case the md/dL/mg/dl/MG/DL.
+4. Leave notes as is.
+5. Sample id's become all fixed and no spaces or hyphens.
+6. Normal case the patient names.
+7. Change the DOB formats to be YYYY-MM-DD and read the current dates as month, date, year with cut offs for 1900's beginning at 27-99 and for 2000's 00-26.
+8. Leave glucose values that are N/A/* as a `glucose_flag`.
+**Exact output (verbatim):**
+Those are good decisions. Two notes before we code.
+
+**Date order.** Your conclusion is right: the slash and dot formats are month-first. To be precise, the file has `MM/DD/YYYY` (four-digit year) and `MM.DD.YY` (two-digit year), not dashes. `DD-Mon-YYYY` (like `21-Jun-1997`) uses a month name, so it can't be misread, and `YYYY-MM-DD` is already ISO.
+
+**The `mmol/L` rows.** Your reasoning is sound, and this file lets us confirm it. In `generate_data.py`, the glucose value is drawn uniformly from 70–250 and the unit is picked separately with `random.choice`, so the unit label is noise here. That is a stronger check than the file gives on its face, and real data wouldn't come with one. In a real study you couldn't be sure, and you'd ask whoever collected the data.
+
+That points to the design for the glucose column. We still write a real mmol/L → mg/dL converter (the task asks for "conversion where needed"), but it first checks whether the value is plausible for its label. A glucose above roughly 60 mmol/L is physiologically impossible, so those rows get treated as mg/dL, keep their original label in a separate column, and are flagged. Then document it as an assumption.
+
+## Step 1: Start `src/clean_samples_regex.py`
+
+In VS Code, create `src/clean_samples_regex.py` and paste this in. It handles the four mechanical columns first. Dates and glucose come next, once these work.
+
+```python
+"""Regex-based cleaning of messy_samples.csv (Lab 3, approach 1)."""
+import re
+from pathlib import Path
+
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+RAW = ROOT / "data/raw/lab3-messy-data/messy_samples.csv"
+
+
+def clean_sample_id(raw):
+    """'s-0003' or 'S0003' -> 'S0003'."""
+    m = re.fullmatch(r"[Ss]-?(\d{4})", raw.strip())
+    if m is None:
+        return None
+    return f"S{m.group(1)}"
+
+
+def clean_name(raw):
+    """'A. NGUYEN' or 'A. Nguyen' -> 'A. Nguyen'."""
+    m = re.fullmatch(r"([A-Za-z])\.\s+([A-Za-z]+)", raw.strip())
+    if m is None:
+        return None
+    return f"{m.group(1).upper()}. {m.group(2).capitalize()}"
+
+
+def clean_sex(raw):
+    """M/m/Male -> 'M'; F/f/Female -> 'F'; U/unknown/blank -> 'U'."""
+    s = raw.strip().lower()
+    if re.fullmatch(r"m(ale)?", s):
+        return "M"
+    if re.fullmatch(r"f(emale)?", s):
+        return "F"
+    if re.fullmatch(r"(u|unknown)?", s):
+        return "U"
+    return None
+
+
+def clean_site(raw):
+    """'siteB', 'Site  C ', 'SITE-A', 'site_a' -> 'Site A' / 'Site B' / 'Site C'."""
+    m = re.fullmatch(r"site[\s_-]*([abc])", raw.strip(), flags=re.IGNORECASE)
+    if m is None:
+        return None
+    return f"Site {m.group(1).upper()}"
+
+
+def main():
+    df = pd.read_csv(RAW, dtype=str, keep_default_na=False)
+    out = pd.DataFrame()
+    out["sample_id"] = df["sample_id"].map(clean_sample_id)
+    out["patient_name"] = df["patient_name"].map(clean_name)
+    out["sex"] = df["sex"].map(clean_sex)
+    out["enrollment_site"] = df["enrollment_site"].map(clean_site)
+
+    print(out.head(8).to_string(), "\n")
+    print("Rows that failed to match (should all be 0):")
+    print(out.isna().sum().to_string(), "\n")
+    print(out["sex"].value_counts().to_string(), "\n")
+    print(out["enrollment_site"].value_counts().to_string())
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Save it, then run from the repo root (use `cd ..` if you're still inside `src`):
+
+```bash
+python src/clean_samples_regex.py
+```
+
+## Step 2: What to expect
+
+- The first 8 rows show clean values, for example `S0003`, `Site B` and `A. Nguyen`.
+- Every "failed to match" count is `0`.
+- Sex counts: `M 23`, `U 19`, `F 18`.
+- Site counts: `Site A 19`, `Site B 21`, `Site C 20`.
+
+Those counts should equal what you get by adding up the variants from your profiling output. For example, `M` + `m` + `Male` = 10 + 8 + 5 = 23. Check at least one by hand. Comparing raw counts to cleaned counts is how you verify a cleaning step, so put that check in your write-up.
+
+## Step 3: What each regex does
+
+- **`re.fullmatch`** requires the *entire* string to fit the pattern. `match` and `search` would accept `S0003xyz` because part of it fits.
+- **`[Ss]-?(\d{4})`**: `[Ss]` is either case of the letter, `-?` is an optional hyphen (which is why `S0003` and `s-0003` both work), and `(\d{4})` is exactly four digits. The parentheses capture those digits so `m.group(1)` returns them.
+- **Names**: `\.` is a literal dot (a bare `.` means "any character"), and `\s+` is one or more spaces. `.capitalize()` turns `NGUYEN` into `Nguyen`.
+- **Sex**: lowercasing first (`.lower()`) means we only write lowercase patterns. `m(ale)?` is "m", optionally followed by "ale". `(u|unknown)?` makes the whole group optional, so it also matches an empty string, which covers the blanks.
+- **Site**: `[\s_-]*` means "any number of spaces, underscores or hyphens, including none". One pattern covers `siteB`, `Site  C` (double space), `SITE-A` and `site_a`, and `re.IGNORECASE` handles the capitals. `.strip()` removes the trailing space in `'Site C '`.
+- **Returning `None` on no match** makes a bad value show up as a visible gap instead of a silent wrong guess. That is why the "failed to match" check exists.
+
+## Step 4: Commit
+
+```bash
+git add src/clean_samples_regex.py
+git commit -m "Regex cleaning: sample_id, name, sex, site"
+git push
+```
+
+Once your output matches, tell me and we'll add the date function, which has the most decisions in it.
