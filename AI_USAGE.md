@@ -1,8 +1,12 @@
 # AI Usage Log
 ## Entry 1: Discovering Use of .py script for CSV generation
+
 **Model:** Gemini (Flash)
+
 **What I was doing:** I was exploring the data folder on the applied-computing-HDS GitHub. I found that there was a `messy_sequences.fasta` but no `messy_samples.csv` so I wanted to know if I could generate my own to work on the lab with the provided script. It seemed like I would be able to. 
+
 **What I asked first:** "What does this code do? (pasted `generate_data.py`)."
+
 **Exact output (verbatim):** 
 This script serves as a **synthetic data generator** for testing or practicing data-cleaning pipelines. It generates two intentionally "messy" files:
 
@@ -49,9 +53,13 @@ When executed directly (`python generate_data.py`), it sets fixed random seeds (
 **How I verified:** I eventually did run the script (see Entry 2) and the outputs Google Gemini told me to expect were created.
 
 ## Entry 2: How to run the `generate_data.py` script and check FASTA generated against professor's existing version
+
 **Model:** Claude (Sonnet 5)
+
 **What I was doing:** I found out that the script created both FASTA and CSV documents that I needed to complete the lab so I wanted a way to run it and check the outputted FASTA against the professor's version so I could at least somewhat confidently move forward with the lab. 
+
 **What I asked first:** "How can I run this script given my current set up (gave my file path: C:\Users\nelin\Desktop\GWU Information\GWU Fall 2026\Applied_Computing\lab-3-hds\data\raw\lab3-messy-data) and check the existing FASTA (professor's) against the new one?"
+
 **Exact output (verbatim):**  
 You need `messy_samples.csv`, and the instructor's repo doesn't have it. It does have the program that made it, `generate_data.py`, so we re-run that program to get the file back.
 
@@ -92,12 +100,17 @@ The script makes "random" fake data, but it starts each function with `random.se
 You have the instructor's real FASTA but no real CSV, so you can only test the generator against the FASTA. If your run reproduces his FASTA exactly, your Python and his generate the same random numbers from the same seeds. That is strong evidence the CSV matches his too, because the same script and the same kind of random calls produced it. It isn't absolute proof, since the CSV uses a different seed and a few different random functions. That's why the `SOURCE.md` note says the CSV was regenerated rather than downloaded. If he uploads his CSV later, a `diff` against yours settles it.
 
 This is the same reproducibility idea as `environment.yml` from Lab 1. The recipe (script plus seed) recreates the result, and you check that it worked by comparing the result to something known.
+
 **How I verified:** I manually opened both FASTA and did a visual inspection to see if there were indeed any differences. I additionally checked that the folders, files, and paths were correct on my computer. 
 
 ## Entry 3: Exploring data prior to cleaning
+
 **Model:** Claude (Sonnet 5)
+
 **What I was doing:** I wanted to know what the data looked like prior to generating a cleaner script and have a layout of all the different formats of entries.
+
 **What I asked first:** "Can you write me a script that profiles this data before we build a cleaner regex script?"
+
 **Exact output (verbatim):**
 Phase 2 starts with profiling. Before writing any cleaning code, we look at exactly how the data is messy. Each regex you write later is a response to something you've seen, and it gets checked against what you found.
 
@@ -185,7 +198,7 @@ git commit -m "Add profiling script for messy_samples.csv"
 git push
 ```
 
-Run the script and paste the output, or just your answers to the four decisions. Once they're settled, we write `clean_samples_regex.py` one field at a time, starting with the easy ones (ID, sex, site) and ending with dates and glucose.
+Run the script and paste the output. Once they're settled, we write `clean_samples_regex.py` one field at a time, starting with the easy ones (ID, sex, site) and ending with dates and glucose.
 
 **How I verified:** I manually examined the output of the code:
 ```
@@ -257,8 +270,11 @@ mmol/l         12.0  74.9  145.6  249.2
 ```
 
 ## Entry 4:
+
 **Model:** Claude (Sonnet 5)
+
 **What I was doing:** I needed help writing a cleaner regex code script after making my assumptions on what the data is truly trying to show. I examined the numbers of how many formats appeared per group. 
+
 **What I asked first:** Can you help me write a cleaner regex code script with the following assumptions on the data:
 1. Collapse male/M/m and female/F/f into a fixed set and collapse all other unknown/U/'' into "U" for those not recorded (understanding unknown and not recorded are two different things).
 2. Turn the enrollment site into a fixed casing with no spacing.
@@ -268,9 +284,13 @@ mmol/l         12.0  74.9  145.6  249.2
 6. Normal case the patient names.
 7. Change the DOB formats to be YYYY-MM-DD and read the current dates as month, date, year with cut offs for 1900's beginning at 27-99 and for 2000's 00-26.
 8. Leave glucose values that are N/A/* as a `glucose_flag`.
+
 **Exact output (verbatim):**
 Those are good decisions. Two notes before we code.
 
+## Entry 5: 
+
+**
 **Date order.** Your conclusion is right: the slash and dot formats are month-first. To be precise, the file has `MM/DD/YYYY` (four-digit year) and `MM.DD.YY` (two-digit year), not dashes. `DD-Mon-YYYY` (like `21-Jun-1997`) uses a month name, so it can't be misread, and `YYYY-MM-DD` is already ISO.
 
 **The `mmol/L` rows.** Your reasoning is sound, and this file lets us confirm it. In `generate_data.py`, the glucose value is drawn uniformly from 70–250 and the unit is picked separately with `random.choice`, so the unit label is noise here. That is a stronger check than the file gives on its face, and real data wouldn't come with one. In a real study you couldn't be sure, and you'd ask whoever collected the data.
@@ -743,3 +763,145 @@ max      249.3
 Wrote 60 rows to data/processed/samples_clean_regex.csv
 08:33:43 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main ✗|→
 ```
+## Entry 6: Exploring the sequences FASTA
+
+**Model:** Claude (Sonnet 5)
+
+**What I was doing:** I wanted to know what the sequences looked like prior to generating a cleaner script and have a layout of all the different formats of entries.
+
+**What I asked first:** "Can you write me a script that profiles this sequences FASTA before we build a cleaner regex script?" (attached the sequences FASTA)
+
+**Exact ouput (verbatim):** 
+Here's the FASTA profiler. It works on the same principle as the CSV one, with one big difference. The CSV came with columns and we standardized what was in them. Here the columns don't exist yet, because each header is one free-text string and parsing has to create the fields.
+
+## Step 1: Create `src/explore_sequences.py`
+
+In VS Code, create the file in `src/` and paste this in:
+
+```python
+"""Profile messy_sequences.fasta: what do the headers and sequences look like?"""
+import re
+from pathlib import Path
+
+import pandas as pd
+
+FASTA = Path(__file__).resolve().parent.parent / "data/raw/lab3-messy-data/messy_sequences.fasta"
+
+
+def read_fasta(path):
+    """Return a list of (header, sequence, n_sequence_lines); header excludes the '>'."""
+    records, header, chunks = [], None, []
+    for line in path.read_text().splitlines():
+        if line.startswith(">"):
+            if header is not None:
+                records.append((header, "".join(chunks), len(chunks)))
+            header, chunks = line[1:], []
+        elif line.strip():
+            chunks.append(line.strip())
+    if header is not None:
+        records.append((header, "".join(chunks), len(chunks)))
+    return records
+
+
+records = read_fasta(FASTA)
+print("records:", len(records), "\n")
+
+pd.set_option("display.width", 200)
+pd.set_option("display.max_colwidth", 80)
+
+print("--- headers next to the real sequence length ---")
+table = pd.DataFrame({
+    "header": [r[0] for r in records],
+    "actual_len": [len(r[1]) for r in records],
+    "seq_lines": [r[2] for r in records],
+    "non_ACGT": [sorted(set(r[1]) - set("ACGT")) for r in records],
+})
+print(table.to_string(), "\n")
+
+print("--- which delimiters appear in each header ---")
+delims = pd.DataFrame({
+    "pipe |": [h.count("|") for h, _, _ in records],
+    "semi ;": [h.count(";") for h, _, _ in records],
+    "equals =": [h.count("=") for h, _, _ in records],
+    "colon :": [h.count(":") for h, _, _ in records],
+    "spaces": [h.count(" ") for h, _, _ in records],
+})
+print(delims.to_string(), "\n")
+
+print("--- header shapes (letters -> a, digits -> 9) ---")
+shapes = [re.sub(r"\d+", "9", re.sub(r"[A-Za-z]+", "a", h)) for h, _, _ in records]
+for i, s in enumerate(shapes):
+    print(f"{i}: {s}")
+print("distinct shapes:", len(set(shapes)), "of", len(shapes))
+```
+
+Save it, then run it from the repo root:
+
+```bash
+python src/explore_sequences.py
+```
+
+## Step 2: How the script works
+
+- **`read_fasta`** is a small hand-written reader, so no Biopython is needed for 8 records. A line starting with `>` begins a new record, and `line[1:]` drops the `>` from the header. Every other line is sequence, and the sequence is wrapped at 60 characters across several lines. That's why we join the lines (`"".join(chunks)`) before measuring length. Counting only the first line would give you 60.
+- **`seq_lines`** shows how many lines each sequence was split over.
+- **`non_ACGT`** lists any characters in a sequence other than the four bases, such as `N`, lowercase letters or stray spaces. An empty list means the sequence is clean.
+- **The delimiter table** counts each separator per header.
+- **The shape trick** is the same as the `S9999` one from the CSV. Every run of letters becomes `a` and every run of digits becomes `9`, so what's left is the *structure* of the header.
+
+## Step 3: What to expect and what it shows
+
+Checkpoints against my run: `records: 8`, `actual_len` of 120 for the first record and 123 for the last, and `distinct shapes: 8 of 8`.
+
+- **Eight records, eight different shapes.** No two headers share a format, so one regex for the whole header can't work, and neither can one split on a delimiter. The delimiter table shows why. Some headers use pipes, some semicolons, and some only spaces, and `Homo sapiens` contains a space of its own, so splitting on spaces would cut the organism name in half. The approach that fits is the same one we used for the CSV: one small regex per *field* (ID, organism, gene, length), each written to tolerate the variants.
+- **The sequences themselves are clean.** `non_ACGT` is empty for all 8, so the mess is entirely in the headers.
+
+## Step 4: Commit
+
+```bash
+git pull --rebase
+git add src/explore_sequences.py
+git commit -m "Add profiling script for messy_sequences.fasta"
+git push
+```
+
+Run the script and then we'll write `clean_sequences_regex.py`.
+
+**How I verified:** I ran the script and manually examined the output:
+```
+01:54:56 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main ✗|→ python src/explore_sequences.py
+Records: 8
+
+--- Headers next to the real sequence length ---
+                                                          header  actual_len  seq_lines non_ACGT
+0            sample_001|organism=Homo_sapiens|gene=BRCA1|len=120         120          2       []
+1                      Sample002 organism:Homo sapiens gene:TP53         134          3       []
+2                sample-003 | Homo_sapiens | EGFR | length=150bp         157          3       []
+3                      SAMPLE_004;species=H.sapiens;target=BRCA1         104          2       []
+4                           sample005 Homo sapiens; TP53; 130 bp         144          3       []
+5                                             seq6|Hsapiens|EGFR         125          3       []
+6  Sample_007 organism=Homo_sapiens|gene=BRCA1|note:re-sequenced         135          3       []
+7                 sample-8 species:Homo_sapiens gene:TP53 len:NA         123          3       []
+
+--- Which delimiters appear in each header ---
+   pipe |  semi ;  equals =  colon :  spaces
+0       3       0         3        0       0
+1       0       0         0        2       3
+2       3       0         1        0       6
+3       0       2         2        0       0
+4       0       2         0        0       5
+5       2       0         0        0       0
+6       2       0         2        1       1
+7       0       0         0        3       3
+
+--- Header shapes (letters -> a, digits -> 9) ---
+0: a_9|a=a_a|a=a9|a=9
+1: a9 a:a a a:a9
+2: a-9 | a_a | a | a=9a
+3: a_9;a=a.a;a=a9
+4: a9 a a; a9; 9 a
+5: a9|a|a
+6: a_9 a=a_a|a=a9|a:a-a
+7: a-9 a:a_a a:a9 a:a
+```
+**What I asked next:** <Asked it to write a cleaner script with the 5 specifications I decided for the sequences regex.> 
