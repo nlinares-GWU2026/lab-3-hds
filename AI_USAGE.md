@@ -512,4 +512,234 @@ git push
 
 Next is glucose: the value, the `N/A` and `*` handling with the flag column, and the unit-plausibility logic we designed. Then we write the output table.
 **How I verified:** I manually typed out the code and added comments for what the block and regex function was doing. I also manually verified the output:
+```
+08:18:20 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main✔|→ python src/clean_samples_regex.py
+  sample_id patient_name         dob sex enrollment_site
+0     S0001    A. Nguyen  1962-07-09   F          Site A
+1     S0002     T. Patel  1974-12-16   M          Site A
+2     S0003  R. Martinez  1953-11-24   F          Site B
+3     S0004     B. Smith  1975-12-18   F          Site B
+4     S0005  B. Martinez  1997-12-02   M          Site A
+5     S0006   A. Johnson  1955-12-09   F          Site B
+6     S0007  T. Martinez  1969-09-04   U          Site A
+7     S0008  T. Martinez  1997-06-21   M          Site A
 
+Rows that failed to match (should all be 0):
+sample_id          0
+patient_name       0
+dob                0
+sex                0
+enrollment_site    0
+
+sex
+M    23
+U    19
+F    18
+
+dob range: 1951-02-06 to 2018-05-11
+
+            raw       clean
+0    07/09/1962  1962-07-09
+1    12/16/1974  1974-12-16
+2      11.24.53  1953-11-24
+3    12/18/1975  1975-12-18
+4    1997-12-02  1997-12-02
+5    1955-12-09  1955-12-09
+6    1969-09-04  1969-09-04
+7   21-Jun-1997  1997-06-21
+8    2018-05-11  2018-05-11
+9    10/01/1951  1951-10-01
+10   1997-10-16  1997-10-16
+11  21-Apr-2008  2008-04-21
+
+enrollment_site
+Site B    21
+Site C    20
+Site A    19
+08:18:41 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main✔|→
+```
+**What I asked next:** After pasting my output (above), I prompted Claude to finish the code with the glucose function because in the previous answer it claimed it was more of a complicated step. "Can you edit the current code you just sent to include the glucose function and explain what it does?"
+**Exact outout (verbatim):** 
+We can finish the regex script. Its last piece is glucose, plus writing the output table.
+
+## Step 1: Four edits to `src/clean_samples_regex.py`
+
+**Edit 1: constants.** Add these right after the `RAW = ...` line:
+
+```python
+OUT = ROOT / "data/processed/samples_clean_regex.csv"
+
+MMOL_TO_MGDL = 18.016        # 1 mmol/L of glucose = 18.016 mg/dL
+MMOL_MAX_PLAUSIBLE = 60      # a glucose above this can't really be in mmol/L
+```
+
+**Edit 2: glucose functions.** Paste these after `clean_site` and before `main()`:
+
+```python
+def clean_glucose_unit(raw):
+    """'mg/dl', 'MG/DL', 'mg/dL' -> 'mg/dL'; 'mmol/L' -> 'mmol/L'."""
+    s = raw.strip().lower()
+    if re.fullmatch(r"mg/dl", s):
+        return "mg/dL"
+    if re.fullmatch(r"mmol/l", s):
+        return "mmol/L"
+    return None
+
+
+def clean_glucose(value_raw, unit_raw):
+    """Return (glucose in mg/dL, unit as originally labelled, flag text)."""
+    unit = clean_glucose_unit(unit_raw)
+    flags = []
+    if unit is None:
+        flags.append("unit_unrecognized")
+
+    s = value_raw.strip()
+    if re.fullmatch(r"n/?a", s, flags=re.IGNORECASE):
+        return None, unit, ";".join(flags + ["missing"])
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)(\*)?", s)
+    if m is None:
+        return None, unit, ";".join(flags + ["unparsed"])
+
+    value = float(m[1])
+    if m[2]:
+        flags.append("asterisk")
+    if unit == "mmol/L":
+        if value > MMOL_MAX_PLAUSIBLE:
+            flags.append("unit_label_implausible")   # treat value as mg/dL
+        else:
+            value = round(value * MMOL_TO_MGDL, 1)
+    return value, unit, ";".join(flags)
+```
+
+**Edit 3: replace the whole `main()`** with this version:
+
+```python
+def main():
+    df = pd.read_csv(RAW, dtype=str, keep_default_na=False)
+    out = pd.DataFrame()
+    out["sample_id"] = df["sample_id"].map(clean_sample_id)
+    out["patient_name"] = df["patient_name"].map(clean_name)
+    out["dob"] = df["dob"].map(clean_dob)
+    out["sex"] = df["sex"].map(clean_sex)
+    out["enrollment_site"] = df["enrollment_site"].map(clean_site)
+
+    glucose = [clean_glucose(v, u) for v, u in zip(df["glucose_value"], df["glucose_unit"])]
+    out["glucose_mg_dl"] = [g[0] for g in glucose]
+    out["glucose_unit_original"] = [g[1] for g in glucose]
+    out["glucose_flag"] = [g[2] for g in glucose]
+    out["notes"] = df["notes"]
+
+    print(out.head(8).to_string(), "\n")
+    print("Missing values per column (only glucose_mg_dl should be non-zero):")
+    print(out.isna().sum().to_string(), "\n")
+    print("glucose_flag counts:")
+    print(out["glucose_flag"].map(repr).value_counts().to_string(), "\n")
+    print("glucose_mg_dl summary:")
+    print(out["glucose_mg_dl"].describe().round(1).to_string(), "\n")
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(OUT, index=False)
+    print(f"Wrote {len(out)} rows to {OUT.relative_to(ROOT)}")
+```
+
+Keep the `if __name__ == "__main__": main()` lines at the very bottom. Then run it from the repo root:
+
+```bash
+python src/clean_samples_regex.py
+```
+
+## Step 2: What to expect
+
+- **Missing values:** `0` everywhere except `glucose_mg_dl`, which is `2`. Those are the two `N/A` rows.
+- **Flag counts:** `''` 44, `'unit_label_implausible'` 12, `'missing'` 2, `'asterisk'` 2. They add up to 60, and the 12 matches the 12 numeric `mmol/L` rows in your profiling table.
+- **Glucose summary:** count 58, min 74.9, max 249.3. Everything is now in one unit and in a plausible range.
+- **Last line:** `Wrote 60 rows to data/processed/samples_clean_regex.csv`.
+- **Row `S0006`:** shows `141.2`, `mmol/L`, `unit_label_implausible`.
+
+## Step 3: How the glucose function works
+
+- **Three outputs at once.** `clean_glucose` returns a tuple of (value, original unit, flag), which `main()` splits into the three columns. Keeping the original unit label in its own column means nobody has to guess what the raw file said.
+- **`(\d+(?:\.\d+)?)(\*)?`** reads as: digits, then optionally a dot and more digits, then optionally a literal star. `(?:...)` groups without capturing, which keeps `m[1]` and `m[2]` simple. The star is written `\*` because a bare `*` is a regex operator. `m[2]` holds the star, or `None` if there wasn't one.
+- **`n/?a`** with `IGNORECASE` matches `N/A`, `n/a` and `NA`.
+- **Flags are joined with `;`**, so one row can carry several, such as `asterisk;unit_label_implausible`.
+- **The unit rule.** Labelled `mmol/L` and above 60, it's flagged and left as-is. Labelled `mmol/L` and 60 or below, it's multiplied by 18.016.
+- **Anything unexpected** (`unit_unrecognized`, `unparsed`) becomes a flagged gap instead of a guess.
+
+## Step 4: Test the conversion
+
+This dataset never uses the conversion branch, because every `mmol/L` value is implausibly large. Code that never runs is code you haven't verified, so test it directly:
+
+```bash
+python -c "import sys; sys.path.insert(0, 'src'); import clean_samples_regex as c; print(c.clean_glucose('12.5', 'mmol/L')); print(c.clean_glucose('150.0*', 'mmol/L'))"
+```
+
+You should get:
+
+```
+(225.2, 'mmol/L', '')
+(150.0, 'mmol/L', 'asterisk;unit_label_implausible')
+```
+
+The first line is 12.5 × 18.016 = 225.2. The second shows two flags on one row. Then check the output file:
+
+```bash
+head -5 data/processed/samples_clean_regex.csv
+wc -l data/processed/samples_clean_regex.csv
+```
+
+`wc -l` should show `61` (a header plus 60 rows).
+
+## Step 5: Commit
+
+This commit includes the output table, so the deliverable is in the repo. Note that `data/processed/` now has a real file, which is exactly why it will show up on GitHub this time.
+
+```bash
+git pull --rebase
+git add src/clean_samples_regex.py data/processed/samples_clean_regex.csv
+git commit -m "Regex cleaning: glucose value/unit/flag, write output table"
+git push
+```
+**How I verified:**  I manually typed out the code and added comments for what the block and regex function was doing. I also manually verified the output (expecting that the glucose_mg_dl should be non-zero):
+```
+08:18:41 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main✔|→ python src/clean_samples_regex.py
+  sample_id patient_name         dob sex enrollment_site  glucose_mg_dl glucose_unit_original            glucose_flag notes
+0     S0001    A. Nguyen  1962-07-09   F          Site A           75.4                 mg/dL                           
+1     S0002     T. Patel  1974-12-16   M          Site A          120.0                 mg/dL                           
+2     S0003  R. Martinez  1953-11-24   F          Site B           84.2                 mg/dL                           
+3     S0004     B. Smith  1975-12-18   F          Site B          120.0                 mg/dL                           
+4     S0005  B. Martinez  1997-12-02   M          Site A          248.1                 mg/dL                           
+5     S0006   A. Johnson  1955-12-09   F          Site B          141.2                mmol/L  unit_label_implausible   
+6     S0007  T. Martinez  1969-09-04   U          Site A          225.0                 mg/dL                           
+7     S0008  T. Martinez  1997-06-21   M          Site A          192.7                 mg/dL                           
+
+Missing values per column (only glucose_mg_dl should be non-zero):
+sample_id                0
+patient_name             0
+dob                      0
+sex                      0
+enrollment_site          0
+glucose_mg_dl            2
+glucose_unit_original    0
+glucose_flag             0
+notes                    0
+
+glucose_flag counts:
+glucose_flag
+''                          44
+'unit_label_implausible'    12
+'missing'                    2
+'asterisk'                   2
+
+glucose_mg_dl summary:
+count     58.0
+mean     161.9
+std       52.0
+min       74.9
+25%      120.0
+50%      156.3
+75%      209.1
+max      249.3
+
+Wrote 60 rows to data/processed/samples_clean_regex.csv
+08:33:43 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main ✗|→
+```
