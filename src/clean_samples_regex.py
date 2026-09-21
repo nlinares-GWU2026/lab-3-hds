@@ -42,7 +42,7 @@ def clean_dob(raw):
 # (/d{4}): Capture group 1. Matches exactly 4 numeric digits (\d) and accessing m.group(1) retrieves 4 digits so can be reformatted as S+digits 
 def clean_sample_id(raw):
     """'s-0003' or 'S0003' -> S0003"""
-    m = re.match(r"^[sS]-?(\d+)$", raw.strip())
+    m = re.fullmatch(r"[Ss]-?(\d{4})", raw.strip())
     if m is None:
         return None
     return f"S{m.group(1)}"
@@ -52,7 +52,7 @@ def clean_sample_id(raw):
 # ([A-Za-z]): Capture group 1. Matches single letter (uppercase or lowercase) representing the first initial
 # \. Matches literal period
 #\s+ Matches one or more whitespace spaces/tabs separating intial and last name
-# ([A-Za-z])+: Capture group 2. Matches one or more consecutive letters representing last name.
+# ([A-Za-z]+): Capture group 2. Matches one or more consecutive letters representing last name.
 def clean_name(raw):
     """'A. NGUYEN' or 'A. Nguyen' -> 'A. Nguyen'"""
     m = re.fullmatch(r"([A-Za-z])\.\s+([A-Za-z]+)", raw.strip())
