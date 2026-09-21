@@ -5,6 +5,9 @@ from pathlib import Path
 import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data/raw/lab3-messy-data/messy_samples.csv"
+OUT = ROOT / "data/processed/samples_clean_regex.csv"
+MMOL_TO_MGDL = 18.016 # 1 mmol/L of glucose = 18.016 mg/dL
+MMOL_MAX_PLAUSIBLE = 60 # A glucose above this cannot really be in mmol/L
 MONTHS = {name: i for i, name in enumerate(
    ["jan", "feb", "mar", "apr", "may", "jun",
      "jul", "aug", "sep", "oct", "nov", "dec"], start=1)} 
@@ -86,6 +89,47 @@ def clean_site(raw):
         return None
     return f"Site {m.group(1).upper()}"
 
+# Maps inconsistent glucose unit labels into a uniform format
+def clean_glucose_unit(raw):
+    """'mg/dl', 'MG/DL', 'mg/dL' -> 'mg/dL'; 'mmol/L' -> 'mmol/L'."""
+    s = raw.strip().lower()
+    if re.fullmatch(r"mg/dl", s):
+        return "mg/dL"
+    if re.fullmatch(r"mmol/l", s):
+        return "mmol/L"
+    return None
+
+# Takes raw text inputs for both the glucose value and the unit label. Standardizes the unit via 
+    # clean_glucose_unit() and initializes an empty list 'flags' to record data-quality issues. If 
+    # unit is invalid, it flags as 'unit unrecognized'
+def clean_glucose(value_raw, unit_raw):
+    """Return (glucose in mg/dL, unit as originally labelled, flag text)."""
+    unit = clean_glucose_unit(unit_raw)
+    flags = []
+    if unit is None:
+        flags.append("unit_unrecognized")
+
+    # Strips leading/trailing whitespace from raw value and tests for missing entries or unparseable formats
+    s = value_raw.strip()
+    if re.fullmatch(r"n/?a", s, flags=re.IGNORECASE):
+        return None, unit, ";".join(flags + ["missing"])
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)(\*)?", s)
+    if m is None:
+        return None, unit, ";".join(flags + ["unparsed"])
+
+    # Converts the captured numeric option to a float
+    # If group 2 captured an asterisk, it appends 'asterisk' to 'flags'
+    # Handles unit conversion and joins all active flags into a semicolon-delimited string and returns tuple
+    value = float(m[1])
+    if m[2]:
+        flags.append("asterisk")
+    if unit == "mmol/L":
+        if value > MMOL_MAX_PLAUSIBLE:
+            flags.append("unit_label_implausible")   # treat value as mg/dL
+        else:
+            value = round(value * MMOL_TO_MGDL, 1)
+    return value, unit, ";".join(flags)
+
 # Loads raw CSV without converting empty cells to default NaN values
 # Applies .map() each cleaning function to its corresponding column and saves the cleaned series into new df 'out'
 # Prints first 8 rows of cleaned data, checks for missing/failed matches and summarizes category distributions
@@ -98,13 +142,23 @@ def main():
     out["sex"] = df["sex"].map(clean_sex)
     out["enrollment_site"] = df["enrollment_site"].map(clean_site)
 
+    glucose = [clean_glucose(v, u) for v, u in zip(df["glucose_value"], df["glucose_unit"])]
+    out["glucose_mg_dl"] = [g[0] for g in glucose]
+    out["glucose_unit_original"] = [g[1] for g in glucose]
+    out["glucose_flag"] = [g[2] for g in glucose]
+    out["notes"] = df["notes"]
+
     print(out.head(8).to_string(), "\n")
-    print("Rows that failed to match (should all be 0):")
+    print("Missing values per column (only glucose_mg_dl should be non-zero):")
     print(out.isna().sum().to_string(), "\n")
-    print(out["sex"].value_counts().to_string(), "\n")
-    print("dob range:", out["dob"].min(), "to", out["dob"].max(), "\n")
-    print(pd.DataFrame({"raw": df["dob"], "clean": out["dob"]}).head(12).to_string(), "\n")
-    print(out["enrollment_site"].value_counts().to_string())
+    print("glucose_flag counts:")
+    print(out["glucose_flag"].map(repr).value_counts().to_string(), "\n")
+    print("glucose_mg_dl summary:")
+    print(out["glucose_mg_dl"].describe().round(1).to_string(), "\n")
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(OUT, index=False)
+    print(f"Wrote {len(out)} rows to {OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
