@@ -1091,11 +1091,11 @@ sequence              0
 
 **What I was doing:** After constructing and completing both of the CSV files, I needed to build a samples x features x metadata table per the graduate addendum. I separated the `samples_clean_regex.csv` into the "samples, features metadata" groups and assigned columns: Identifier: `sample_id`, Feature: `glucose_mg_dl`, Metadata: `sex`, `enrollment_site`, `dob`, `notes`, `glucose_flag`, `glucose_unit_original`.
 
-**What I asked first:** With the organization parameters of Groups: Columns, I need the `samples_clean_regex.csv` to be arranged in a table with the following structure samples x features x metadata. I have defined the following parameters: Identifier: `sample_id`, Feature: `glucose_mg_dl`, Metadata: `sex`, `enrollment_site`, `dob`, `notes`, `glucose_flag`, `glucose_unit_original`. 
+**What I asked first:** With the organization parameters of Groups: Columns, I need the `samples_clean_regex.csv` to be arranged in a table with the following structure samples x features x metadata. I have defined the following parameters: Identifier: `sample_id`, Feature: `glucose_mg_dl`, Metadata: `sex`, `enrollment_site`, `dob`, `notes`, `glucose_flag`, `glucose_unit_original`. I also need the output to be able to checked against the following criteria "re types consistent? is missingness documented rather than silently dropped? are units resolved to one system?"
 
 **Exact output (verbatim):**
 
-This reads your cleaned CSV table and produces a samples × features × metadata table.
+This reads your cleaned CSV table and produces a samples × features × metadata table plus the readiness checks. 
 
 The column split:
 
@@ -1176,7 +1176,7 @@ python src/build_analytic_table.py
 - **`keep_default_na=False, na_values={"glucose_mg_dl": ""}`**: your cleaned CSV writes missing glucose as an empty cell, and this tells pandas to treat that column's blanks as real missing values while every other column's text is read literally. Without it, pandas might also blank out something like a genuinely empty `notes` field in an unintended way, or fail to recognize the glucose gap at all.
 - **`age_from_dob`** does the month/day comparison by hand rather than just subtracting years, so someone born Oct 1 isn't counted as a year older before their birthday has actually happened.
 - **`set_index("sample_id")`** makes the identifier the row label instead of a data column, which is exactly what "one row per sample" means in practice.
-- **The printed checks** are the same four items from the Week 5 checklist: `dtypes` for consistent types, `isna().sum()` for documented missingness, the column split for metadata/feature separation, and the fact that `glucose_mg_dl` is a single unit (mg/dL) for units resolved.
+- **The printed checks** are the same four items from the readiness checklist: `dtypes` for consistent types, `isna().sum()` for documented missingness, the column split for metadata/feature separation, and the fact that `glucose_mg_dl` is a single unit (mg/dL) for units resolved.
 
 ## Commit
 
