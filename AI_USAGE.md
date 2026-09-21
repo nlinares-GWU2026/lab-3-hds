@@ -912,3 +912,175 @@ Records: 8
 5. Length: Extract numeric length values from header strings across various formats (`len=`, `150bp` and `130bp`, etc.) while standardizing missing entries as NA, compute the sequence's actual length directly from string sequence to preserve data type consistency and finally create a `length_flag` column to flag mismatches.
 
 **Exact output (verbatim):** 
+Your instincts on 1–3 are all fine.
+
+## Step 1: Create `src/clean_sequences_regex.py`
+
+```python
+"""Regex-based cleaning of messy_sequences.fasta (Lab 3, approach 1)."""
+import re
+from pathlib import Path
+
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+RAW = ROOT / "data/raw/lab3-messy-data/messy_sequences.fasta"
+OUT = ROOT / "data/processed/sequences_clean_regex.csv"
+
+# Homo_sapiens, Homo sapiens, H.sapiens, Hsapiens
+ORGANISM = r"(?:Homo[ _]sapiens|H\.?sapiens)"
+# gene symbols are capital letters/digits by convention: BRCA1, TP53, EGFR
+GENE_SYMBOL = r"([A-Z][A-Z0-9]+)\b"
+GENE_LABELLED = re.compile(r"\b(?:gene|target)\s*[=:]\s*" + GENE_SYMBOL)
+GENE_AFTER_ORGANISM = re.compile(
+    ORGANISM + r"[\s|;]*(?:(?:gene|target)\s*[=:]\s*)?" + GENE_SYMBOL
+)
+
+
+def read_fasta(path):
+    """Return a list of (header, sequence); header excludes the '>'."""
+    records, header, chunks = [], None, []
+    for line in path.read_text().splitlines():
+        if line.startswith(">"):
+            if header is not None:
+                records.append((header, "".join(chunks)))
+            header, chunks = line[1:], []
+        elif line.strip():
+            chunks.append(line.strip())
+    if header is not None:
+        records.append((header, "".join(chunks)))
+    return records
+
+
+def parse_sample_id(header):
+    """'sample-003', 'SAMPLE_004', 'seq6', 'sample-8' -> 'sample_003' etc."""
+    m = re.match(r"\s*(?:sample|seq)[_-]?(\d+)", header, flags=re.IGNORECASE)
+    if m is None:
+        return None
+    return f"sample_{int(m[1]):03d}"
+
+
+def parse_organism(header):
+    """Any spelling of Homo sapiens (including abbreviations) -> 'Homo sapiens'."""
+    if re.search(ORGANISM, header, flags=re.IGNORECASE):
+        return "Homo sapiens"
+    return None
+
+
+def parse_gene(header):
+    """Try an explicit label first, then fall back to the field after the organism."""
+    m = GENE_LABELLED.search(header)
+    if m:
+        return m[1]
+    m = GENE_AFTER_ORGANISM.search(header)
+    if m:
+        return m[1]
+    return None
+
+
+def parse_declared_length(header):
+    """'len=120', 'length=150bp', '130 bp' -> int; 'len:NA' or nothing -> None."""
+    m = re.search(r"\b(?:len|length)\s*[=:]\s*(\d+)", header, flags=re.IGNORECASE)
+    if m:
+        return int(m[1])
+    m = re.search(r"\b(\d+)\s*bp\b", header, flags=re.IGNORECASE)
+    if m:
+        return int(m[1])
+    return None
+
+
+def parse_note(header):
+    """'note:re-sequenced' -> 're-sequenced'; no note -> ''."""
+    m = re.search(r"\bnote\s*[=:]\s*([^|;]+)", header, flags=re.IGNORECASE)
+    return m[1].strip() if m else ""
+
+
+def main():
+    records = read_fasta(RAW)
+    rows = []
+    for header, seq in records:
+        declared = parse_declared_length(header)
+        actual = len(seq)
+        rows.append({
+            "sample_id": parse_sample_id(header),
+            "organism": parse_organism(header),
+            "gene": parse_gene(header),
+            "declared_length_bp": declared,
+            "actual_length_bp": actual,
+            "length_flag": "mismatch" if declared is not None and declared != actual else "",
+            "note": parse_note(header),
+            "sequence": seq,
+        })
+    out = pd.DataFrame(rows)
+    out["declared_length_bp"] = out["declared_length_bp"].astype("Int64")
+
+    print(out.drop(columns="sequence").to_string(), "\n")
+    print("Missing values per column (only declared_length_bp is expected to have gaps):")
+    print(out.isna().sum().to_string(), "\n")
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(OUT, index=False)
+    print(f"Wrote {len(out)} rows to {OUT.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Save it, then run from the repo root:
+
+```bash
+python src/clean_sequences_regex.py
+```
+
+## Step 2: What to expect
+
+- Genes come out as BRCA1, TP53, EGFR, BRCA1, TP53, EGFR, BRCA1, TP53, in record order.
+- `declared_length_bp` has values only for `sample_001` (120), `sample_003` (150) and `sample_005` (130), with 5 missing.
+- `length_flag` says `mismatch` for exactly two rows, `sample_003` and `sample_005`.
+- `note` has `re-sequenced` only for `sample_007`.
+- Missing values are `0` in every column except `declared_length_bp`, which has `5`.
+- Last line: `Wrote 8 rows to data/processed/sequences_clean_regex.csv`.
+
+## Step 3: What's new in the code
+
+- **`ORGANISM`** covers all four spellings in one pattern. `[ _]` means a space or an underscore, and `H\.?sapiens` means "H", an optional literal dot, then "sapiens". The pattern is reused inside the gene regex so the two stay consistent.
+- **`GENE_AFTER_ORGANISM`** reads as: the organism, then any run of spaces, pipes or semicolons (`[\s|;]*`), then an optional label (`(?:...)?`), then the gene symbol. That's your "after Homo sapiens" idea, made precise.
+- **`re.compile`** builds each pattern once, which is also good for readability.
+- **`f"sample_{int(m[1]):03d}"`** turns the captured digits into a number and zero-pads it to 3 places, so `6` and `006` both become `006`.
+- **`.astype("Int64")`** keeps whole numbers as whole numbers with gaps. Plain pandas would turn the column into decimals like `120.0` because of the missing values.
+- **`read_fasta`** is copied from the profiler. Importing it instead would re-run the profiler's printing, because that script runs its code at the top level.
+  
+## Step 4: Commit
+
+```bash
+git pull --rebase
+git add src/clean_sequences_regex.py data/processed/sequences_clean_regex.csv
+git commit -m "Regex cleaning for FASTA headers"
+git push
+```
+Run it and check the points above. 
+
+**How I verified:** I manually typed out the code and added comments for what each block and regex function was doing. I also manually verified the output:
+```
+06:16:37 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main ✗|→ python src/clean_sequences_regex.py
+    sample_id      organism   gene  declared_length_bp  actual_length_bp length_flag          note
+0  sample_001  Homo sapiens  BRCA1                 120               120
+1  sample_002  Homo sapiens   TP53                <NA>               134
+2  sample_003  Homo sapiens   EGFR                 150               157    mismatch
+3  sample_004  Homo sapiens  BRCA1                <NA>               104
+4  sample_005  Homo sapiens   TP53                 130               144    mismatch
+5  sample_006  Homo sapiens   EGFR                <NA>               125
+6  sample_007  Homo sapiens  BRCA1                <NA>               135              re-sequenced
+7  sample_008  Homo sapiens   TP53                <NA>               123
+
+Missing values per column (only declared_length_bp is expected to have gaps):
+sample_id             0
+organism              0
+gene                  0
+declared_length_bp    5
+actual_length_bp      0
+length_flag           0
+note                  0
+sequence              0
+```
