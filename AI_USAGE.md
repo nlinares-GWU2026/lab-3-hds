@@ -1189,4 +1189,40 @@ git push
 
 Run it, paste the output, and then we move to Phase B: the Gemini rounds on the CSV and FASTA.
 
-**How I verified:**
+**How I verified:** I manually examined the output of the code and verified that all values and expectations I had checked out:
+```
+ python src/build_analytic_table.py
+           glucose_mg_dl sex enrollment_site  age_years notes            glucose_flag glucose_unit_original
+sample_id
+S0001               75.4   F          Site A         64                                               mg/dL
+S0002              120.0   M          Site A         51                                               mg/dL
+S0003               84.2   F          Site B         72                                               mg/dL
+S0004              120.0   F          Site B         50                                               mg/dL
+S0005              248.1   M          Site A         28                                               mg/dL
+S0006              141.2   F          Site B         70        unit_label_implausible                mmol/L
+S0007              225.0   U          Site A         57                                               mg/dL
+S0008              192.7   M          Site A         29                                               mg/dL
+
+dtypes:
+glucose_mg_dl            float64
+sex                       object
+enrollment_site           object
+age_years                  int64
+notes                     object
+glucose_flag              object
+glucose_unit_original     object
+
+Missing values per column:
+glucose_mg_dl            2
+sex                      0
+enrollment_site          0
+age_years                0
+notes                    0
+glucose_flag             0
+glucose_unit_original    0
+
+age_years range: 8 to 75
+
+Wrote 60 rows to data/processed/samples_analytic.csv
+```
+
