@@ -380,3 +380,136 @@ git push
 ```
 
 Once your output matches, tell me and we'll add the date function, which has the most decisions in it.
+**How I verified:** I manually typed out the code and added comments for what each block and regex function was doing. I also manually verified the output:
+```
+07:56:01 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main✔|→ python src/clean_samples_regex.py
+  sample_id patient_name sex enrollment_site
+0     S0001    A. Nguyen   F          Site A
+1     S0002     T. Patel   M          Site A
+2     S0003  R. Martinez   F          Site B
+3     S0004     B. Smith   F          Site B
+4     S0005  B. Martinez   M          Site A
+5     S0006   A. Johnson   F          Site B
+6     S0007  T. Martinez   U          Site A
+7     S0008  T. Martinez   M          Site A
+
+Rows that failed to match (should all be 0):
+sample_id          0
+patient_name       0
+sex                0
+enrollment_site    0
+
+sex
+M    23
+U    19
+F    18
+
+enrollment_site
+Site B    21
+Site C    20
+Site A    19
+```
+**What I asked next:** After pasting my output (above), I prompted Claude to finish the code with the date function because in the previous answer it claimed it was more of a complicated step requiring decisions. "Can you edit the current code you just sent to include the date/time function and explain what it does?" 
+**Exact output (verbatim):***
+Your output matches mine on every check. Next is the date function, which takes more care than the other columns.
+
+## Step 1: Three edits to `src/clean_samples_regex.py`
+
+**Edit 1: imports.** At the top, add one line so the imports read:
+
+```python
+import re
+from datetime import date
+from pathlib import Path
+```
+
+**Edit 2: helpers.** Paste this block right after the `RAW = ...` line and before `def clean_sample_id`:
+
+```python
+MONTHS = {name: i for i, name in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun",
+     "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
+
+
+def two_digit_year(yy):
+    """Century rule (our assumption): 00-26 -> 2000s, 27-99 -> 1900s."""
+    yy = int(yy)
+    return 2000 + yy if yy <= 26 else 1900 + yy
+
+
+def clean_dob(raw):
+    """Any of the 4 date formats in the file -> 'YYYY-MM-DD' (or None)."""
+    s = raw.strip()
+    if m := re.fullmatch(r"(\d{2})/(\d{2})/(\d{4})", s):            # MM/DD/YYYY
+        month, day, year = int(m[1]), int(m[2]), int(m[3])
+    elif m := re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s):          # YYYY-MM-DD
+        year, month, day = int(m[1]), int(m[2]), int(m[3])
+    elif m := re.fullmatch(r"(\d{2})-([A-Za-z]{3})-(\d{4})", s):    # DD-Mon-YYYY
+        day, month, year = int(m[1]), MONTHS.get(m[2].lower()), int(m[3])
+    elif m := re.fullmatch(r"(\d{2})\.(\d{2})\.(\d{2})", s):        # MM.DD.YY
+        month, day, year = int(m[1]), int(m[2]), two_digit_year(m[3])
+    else:
+        return None
+    try:
+        return date(year, month, day).isoformat()   # rejects impossible dates
+    except (ValueError, TypeError):
+        return None
+```
+
+**Edit 3: replace the whole `main()`** with this version, which adds the `dob` column and some checks:
+
+```python
+def main():
+    df = pd.read_csv(RAW, dtype=str, keep_default_na=False)
+    out = pd.DataFrame()
+    out["sample_id"] = df["sample_id"].map(clean_sample_id)
+    out["patient_name"] = df["patient_name"].map(clean_name)
+    out["dob"] = df["dob"].map(clean_dob)
+    out["sex"] = df["sex"].map(clean_sex)
+    out["enrollment_site"] = df["enrollment_site"].map(clean_site)
+
+    print(out.head(8).to_string(), "\n")
+    print("Rows that failed to match (should all be 0):")
+    print(out.isna().sum().to_string(), "\n")
+    print(out["sex"].value_counts().to_string(), "\n")
+    print("dob range:", out["dob"].min(), "to", out["dob"].max(), "\n")
+    print(pd.DataFrame({"raw": df["dob"], "clean": out["dob"]}).head(12).to_string(), "\n")
+    print(out["enrollment_site"].value_counts().to_string())
+```
+
+Save and run from the repo root:
+
+```bash
+python src/clean_samples_regex.py
+```
+
+## Step 2: What to expect
+
+- All the "failed to match" counts are `0`, now including `dob`.
+- `dob range: 1951-02-06 to 2018-05-11`.
+- In the raw → clean table, row 1 is `12/16/1974` → `1974-12-16` and row 2 is `11.24.53` → `1953-11-24`. Those are the two rows you used to settle the date order.
+
+## Step 3: How the date function works
+
+- **One function, four patterns, tried in order.** Each format is recognized by its shape. The parentheses capture three numbers, and the code puts them back in a fixed year, month, day order. The capture order differs per format, and getting that right is the whole job. `MM/DD/YYYY` captures month first, while `YYYY-MM-DD` captures year first.
+- **`:=`** (the "walrus") tests the match and stores it in `m` in one step, so each `elif` can immediately use `m[1]`, `m[2]` and so on.
+- **`two_digit_year` is its own function** so your century assumption lives in exactly one place. It's easy to find, change and document.
+- **`date(year, month, day)` is a second safety net.** A regex only checks *shape*: `\d{2}` accepts `13` or `99` as a month. It can't know that `02/30/1960` isn't a real date. Building an actual date object rejects impossible dates, and the `except` turns them into a visible `None` gap instead of a bad value. It also catches an unknown month abbreviation, where `MONTHS.get` returns `None`.
+
+## Step 4: Verify it three ways
+
+1. Zero failures across all columns.
+2. The range check. If the century rule were wrong, the maximum would show up in the 2050s or 2060s. Yours ends in 2018.
+3. Spot-check the two rows above against the raw CSV.
+
+## Step 5: Commit
+
+```bash
+git add src/clean_samples_regex.py
+git commit -m "Regex cleaning: add dob standardization"
+git push
+```
+
+Next is glucose: the value, the `N/A` and `*` handling with the flag column, and the unit-plausibility logic we designed. Then we write the output table.
+**How I verified:** I manually typed out the code and added comments for what the block and regex function was doing. I also manually verified the output:
+
