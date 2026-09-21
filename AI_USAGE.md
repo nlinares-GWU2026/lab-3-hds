@@ -1084,3 +1084,109 @@ length_flag           0
 note                  0
 sequence              0
 ```
+
+## Entry 7: Building analytic table (graduate addendum)
+
+**Model:** Claude (Sonnet 5)
+
+**What I was doing:** After constructing and completing both of the CSV files, I needed to build a samples x features x metadata table per the graduate addendum. I separated the `samples_clean_regex.csv` into the "samples, features metadata" groups and assigned columns: Identifier: `sample_id`, Feature: `glucose_mg_dl`, Metadata: `sex`, `enrollment_site`, `dob`, `notes`, `glucose_flag`, `glucose_unit_original`.
+
+**What I asked first:** With the organization parameters of Groups: Columns, I need the `samples_clean_regex.csv` to be arranged in a table with the following structure samples x features x metadata. I have defined the following parameters: Identifier: `sample_id`, Feature: `glucose_mg_dl`, Metadata: `sex`, `enrollment_site`, `dob`, `notes`, `glucose_flag`, `glucose_unit_original`. 
+
+**Exact output (verbatim):**
+
+This reads your cleaned CSV table and produces a samples × features × metadata table.
+
+The column split:
+
+| Group | Columns |
+|---|---|
+| Identifier | `sample_id` |
+| Feature | `glucose_mg_dl` |
+| Metadata | `sex`, `enrollment_site`, `dob`, `notes`, `glucose_flag`, `glucose_unit_original` |
+
+The main thing this script adds beyond the split is turning `dob` into `age_years`, since a raw birth date is an identifier-adjacent metadata field, and age is what an analysis would actually use.
+
+**Create `src/build_analytic_table.py`:**
+
+```python
+"""Build a samples x features x metadata table from the cleaned CSV output,
+following Week 5's shape, and check it against the readiness checklist."""
+from datetime import date
+from pathlib import Path
+
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+CLEAN = ROOT / "data/processed/samples_clean_regex.csv"
+OUT = ROOT / "data/processed/samples_analytic.csv"
+
+FEATURE_COLS = ["glucose_mg_dl"]
+METADATA_COLS = ["sex", "enrollment_site", "age_years", "notes",
+                  "glucose_flag", "glucose_unit_original"]
+
+
+def age_from_dob(dob_str, as_of=date(2026, 9, 30)):
+    """'YYYY-MM-DD' -> age in whole years as of as_of."""
+    y, m, d = (int(p) for p in dob_str.split("-"))
+    born = date(y, m, d)
+    years = as_of.year - born.year
+    if (as_of.month, as_of.day) < (born.month, born.day):
+        years -= 1
+    return years
+
+
+def main():
+    df = pd.read_csv(CLEAN, keep_default_na=False,
+                      na_values={"glucose_mg_dl": ""})
+    df["age_years"] = df["dob"].map(age_from_dob)
+
+    out = df[["sample_id"] + FEATURE_COLS + METADATA_COLS].set_index("sample_id")
+
+    print(out.head(8).to_string(), "\n")
+    print("dtypes:")
+    print(out.dtypes.to_string(), "\n")
+    print("Missing values per column:")
+    print(out.isna().sum().to_string(), "\n")
+    print("age_years range:", out["age_years"].min(), "to", out["age_years"].max())
+
+    out.to_csv(OUT)
+    print(f"\nWrote {len(out)} rows to {OUT.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it from the repo root:
+
+```bash
+python src/build_analytic_table.py
+```
+
+## What to expect
+
+- `dtypes` shows `glucose_mg_dl` as a float, `age_years` as an integer, and the rest as text (`object`).
+- Missing values: `2` for `glucose_mg_dl` (the `N/A` rows), `0` everywhere else.
+- `age_years range: 8 to 75`, using Sep 30, 2026 (the due date) as the reference point. That choice is worth a line in the write-up, since "age" always needs an as-of date.
+- Last line: `Wrote 60 rows to data/processed/samples_analytic.csv`.
+
+## How it works
+
+- **`keep_default_na=False, na_values={"glucose_mg_dl": ""}`**: your cleaned CSV writes missing glucose as an empty cell, and this tells pandas to treat that column's blanks as real missing values while every other column's text is read literally. Without it, pandas might also blank out something like a genuinely empty `notes` field in an unintended way, or fail to recognize the glucose gap at all.
+- **`age_from_dob`** does the month/day comparison by hand rather than just subtracting years, so someone born Oct 1 isn't counted as a year older before their birthday has actually happened.
+- **`set_index("sample_id")`** makes the identifier the row label instead of a data column, which is exactly what "one row per sample" means in practice.
+- **The printed checks** are the same four items from the Week 5 checklist: `dtypes` for consistent types, `isna().sum()` for documented missingness, the column split for metadata/feature separation, and the fact that `glucose_mg_dl` is a single unit (mg/dL) for units resolved.
+
+## Commit
+
+```bash
+git pull --rebase
+git add src/build_analytic_table.py data/processed/samples_analytic.csv
+git commit -m "Build samples x features x metadata table for addendum"
+git push
+```
+
+Run it, paste the output, and then we move to Phase B: the Gemini rounds on the CSV and FASTA.
+
+**How I verified:**
