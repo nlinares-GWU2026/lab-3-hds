@@ -1,0 +1,61 @@
+sample_id,glucose_mg_dl,sex,enrollment_site,age_years,notes,glucose_flag,glucose_unit_original
+S0001,75.4,F,Site A,64,,,mg/dL
+S0002,120.0,M,Site A,51,,,mg/dL
+S0003,84.2,F,Site B,72,,,mg/dL
+S0004,120.0,F,Site B,50,,,mg/dL
+S0005,248.1,M,Site A,28,,,mg/dL
+S0006,141.2,F,Site B,70,,unit_label_implausible,mmol/L
+S0007,225.0,U,Site A,57,,,mg/dL
+S0008,192.7,M,Site A,29,,,mg/dL
+S0009,221.5,F,Site A,8,,,mg/dL
+S0010,215.2,F,Site C,74,re-draw requested,,mg/dL
+S0011,99.7,M,Site B,28,,unit_label_implausible,mmol/L
+S0012,,U,Site B,18,re-draw requested,missing,mg/dL
+S0013,224.7,U,Site A,20,,,mg/dL
+S0014,133.8,F,Site B,40,,unit_label_implausible,mmol/L
+S0015,150.8,F,Site B,46,,unit_label_implausible,mmol/L
+S0016,112.5,F,Site C,28,,unit_label_implausible,mmol/L
+S0017,249.2,M,Site C,52,,unit_label_implausible,mmol/L
+S0018,84.4,U,Site B,24,re-draw requested,,mg/dL
+S0019,164.1,U,Site B,21,,,mg/dL
+S0020,249.3,M,Site B,9,,,mg/dL
+S0021,187.7,M,Site C,62,,,mg/dL
+S0022,199.2,M,Site A,67,,,mg/dL
+S0023,184.7,M,Site A,51,,,mg/dL
+S0024,169.5,M,Site B,14,,unit_label_implausible,mmol/L
+S0025,143.1,F,Site C,54,,,mg/dL
+S0026,202.3,U,Site C,10,,,mg/dL
+S0027,111.0,M,Site C,35,,,mg/dL
+S0028,102.1,M,Site A,40,re-draw requested,,mg/dL
+S0029,148.5,F,Site C,66,,,mg/dL
+S0030,123.2,U,Site C,49,,,mg/dL
+S0031,211.4,M,Site B,40,,,mg/dL
+S0032,112.3,F,Site C,17,,asterisk,mg/dL
+S0033,105.0,U,Site B,70,,unit_label_implausible,mmol/L
+S0034,91.8,M,Site C,14,,,mg/dL
+S0035,225.1,U,Site C,31,,unit_label_implausible,mmol/L
+S0036,230.7,F,Site A,69,,,mg/dL
+S0037,145.6,U,Site C,28,,,mg/dL
+S0038,157.4,U,Site B,39,,unit_label_implausible,mmol/L
+S0039,74.9,U,Site C,28,,unit_label_implausible,mmol/L
+S0040,145.9,M,Site C,8,,,mg/dL
+S0041,221.1,M,Site A,18,,,mg/dL
+S0042,174.2,M,Site A,61,,,mg/dL
+S0043,223.1,F,Site A,20,,asterisk,mg/dL
+S0044,148.0,U,Site A,46,,,mg/dL
+S0045,176.6,U,Site C,28,,,mg/dL
+S0046,128.5,U,Site C,16,,unit_label_implausible,mmol/L
+S0047,169.9,F,Site B,59,,,mg/dL
+S0048,155.2,M,Site A,14,,,mg/dL
+S0049,241.2,F,Site B,65,,,mg/dL
+S0050,197.4,F,Site A,50,,,mg/dL
+S0051,103.2,U,Site A,75,,,mg/dL
+S0052,240.8,M,Site B,15,,,mg/dL
+S0053,80.8,U,Site B,37,,,mg/dL
+S0054,176.9,M,Site C,70,re-draw requested,,mg/dL
+S0055,186.6,U,Site A,20,,,mg/dL
+S0056,,U,Site B,14,,missing,mmol/L
+S0057,217.9,M,Site C,68,,,mg/dL
+S0058,130.0,F,Site B,37,,,mg/dL
+S0059,142.8,M,Site C,68,,,mg/dL
+S0060,93.6,M,Site B,20,,,mg/dL

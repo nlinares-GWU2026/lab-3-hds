@@ -106,6 +106,9 @@ def parse_note(header):
     m = re.search(r"\bnote\s*[=:]\s*([^|;]+)", header, flags=re.IGNORECASE)
     return m[1].strip() if m else ""
 
+# Reads FASTA file records, iterates through each, calls each parse fucntion to extract attributes into dict rows,
+# calculates actual seq length and sets a length flag if length listed in header does not match actual string length
+# Constructs pandas df, converts `declared_length_bp` to a nullable integer type, prints dataset summaries
 def main():
     records = read_fasta(RAW)
     rows = []
