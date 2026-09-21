@@ -904,4 +904,11 @@ Records: 8
 6: a_9 a=a_a|a=a9|a:a-a
 7: a-9 a:a_a a:a9 a:a
 ```
-**What I asked next:** <Asked it to write a cleaner script with the 5 specifications I decided for the sequences regex.> 
+**What I asked next:** After I reviewed the output of the profiler script and analyzed the data, I asked Claude "Can you help me write a cleaner regex code script (like you did with the CSV) with the following assumptions on the data for the sequences:
+1. Sample ID: `sample_001` format to 3 digits.
+2. Organism: Keep the organism column named `organism` but more importantly expand the species to `Homo sapiens` (if it is H. or otherwise).
+3. Extra fields: Make a column for notes.
+4. Gene: Look for `gene=`, `gene:`, `target=` label first (after organism), otherwise capture anything after the organism before a separator (|, ;, " "). Additionally, have the gene look like a gene symbol (capital letters and digits starting with a letter) so `len` or `note` cannot be picked up accidentally.
+5. Length: Extract numeric length values from header strings across various formats (`len=`, `150bp` and `130bp`, etc.) while standardizing missing entries as NA, compute the sequence's actual length directly from string sequence to preserve data type consistency and finally create a `length_flag` column to flag mismatches.
+
+**Exact output (verbatim):** 
