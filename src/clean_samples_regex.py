@@ -1,9 +1,36 @@
 """Regex-based cleaning of messy_samples.csv (Lab 3, approach 1)"""
 import re
+from datetime import date
 from pathlib import Path
 import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data/raw/lab3-messy-data/messy_samples.csv"
+MONTHS = {name: i for i, name in enumerate(
+   ["jan", "feb", "mar", "apr", "may", "jun",
+     "jul", "aug", "sep", "oct", "nov", "dec"], start=1)} 
+
+def two_digit_year(yy):
+    """Century rule (assumption): 00-26 -> 2000s, 27-99 -> 1900s"""
+    yy = int(yy)
+    return 2000 + yy if yy <=26 else 1900 + yy
+
+def clean_dob(raw):
+    """Any of the 4 date formats in the file -> 'YYYY-MM-DD' (or None)"""
+    s = raw.strip()
+    if m := re.fullmatch(r"(\d{2})/(\d{2})/(\d{4})", s):            # MM/DD/YYYY
+        month, day, year = int(m[1]), int(m[2]), int(m[3])
+    elif m := re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s):          # YYYY-MM-DD
+        year, month, day = int(m[1]), int(m[2]), int(m[3])
+    elif m := re.fullmatch(r"(\d{2})-([A-Za-z]{3})-(\d{4})", s):    # DD-Mon-YYYY
+        day, month, year = int(m[1]), MONTHS.get(m[2].lower()), int(m[3])
+    elif m := re.fullmatch(r"(\d{2})\.(\d{2})\.(\d{2})", s):        # MM.DD.YY
+        month, day, year = int(m[1]), int(m[2]), two_digit_year(m[3])
+    else:
+        return None
+    try:
+        return date(year, month, day).isoformat() # rejects impossible dates
+    except (ValueError, TypeError):
+        return None
 
 # Standardizes sample ID strings into uppercase 'S' followed by a 4-digit number
 # Regex: (r"[Ss]-?(\d{4})") -> 
@@ -67,6 +94,7 @@ def main():
     out = pd.DataFrame()
     out["sample_id"] = df["sample_id"].map(clean_sample_id)
     out["patient_name"] = df["patient_name"].map(clean_name)
+    out["dob"] = df["dob"].map(clean_dob)
     out["sex"] = df["sex"].map(clean_sex)
     out["enrollment_site"] = df["enrollment_site"].map(clean_site)
 
@@ -74,6 +102,8 @@ def main():
     print("Rows that failed to match (should all be 0):")
     print(out.isna().sum().to_string(), "\n")
     print(out["sex"].value_counts().to_string(), "\n")
+    print("dob range:", out["dob"].min(), "to", out["dob"].max(), "\n")
+    print(pd.DataFrame({"raw": df["dob"], "clean": out["dob"]}).head(12).to_string(), "\n")
     print(out["enrollment_site"].value_counts().to_string())
 
 
