@@ -1228,242 +1228,521 @@ Wrote 60 rows to data/processed/samples_analytic.csv
 
 # AI ASSISTED CLEANING - EXPLICIT PROMPT AND OUTPUT
 - **Tool:** Google Gemini (Flash)
-- **Prompt 1 (verbatim):** Below is a small clinical sample CSV (60 rows). Do not clean it yet, do not write or run code. Just read it and tell me, column by column, what inconsistencies or ambiguities you find + (`messy_samples.csv`)  
+- **(CSV) Prompt 1 (verbatim):** Below is a small clinical sample CSV (60 rows). Do not clean it yet, do not write or run code. Just read it and tell me, column by column, what inconsistencies or ambiguities you find + (`messy_samples.csv`)  
 - **Output (verbatim):**
-Here is a column-by-column breakdown of the inconsistencies, formatting variations, and ambiguities in `messy_samples.csv`:
+Here is the column-by-column breakdown of the inconsistencies, ambiguities, and data quality issues in `messy_samples.csv`:
 
 ---
 
 ### **1. `sample_id**`
 
-* **Case & Separator Inconsistencies**: Mixes lowercase and uppercase prefixes with or without hyphens (e.g., `s-0001`, `S0002`, `s0003`, `S-0004`).
-* **Leading/Trailing Whitespace**: Unwanted spaces surrounding entries (e.g., `' S0007 '`).
-* **Padding & Formatting Irregularities**: Variations in zero-padding or prefix style across entries.
+* **Inconsistent Prefix Case:** Values use mixed casing, such as uppercase `S` (`S0003`) and lowercase `s` (`s-0003`).
+
+
+* **Inconsistent Separators:** Some entries include a hyphen between the letter and numbers (`s-0003`), while others omit it (`S0003`).
+
+
+* **Leading/Trailing Whitespace:** Contains unstripped spaces around IDs.
 
 ---
 
 ### **2. `patient_name**`
 
-* **Capitalization Mismatches**: Variations between ALL CAPS, lowercase, and Mixed Case (e.g., `A. NGUYEN`, `b. smith`, `C. Jones`).
-* **Whitespace & Punctuation**: Inconsistent spacing around periods and initials (e.g., missing spaces after dots or extra spaces).
+* **Inconsistent Letter Case:** Names are formatted in uppercase (`A. NGUYEN`), title case (`A. Nguyen`), or lowercase (`a. nguyen`).
+
+
+* **Spacing Variations:** Varying numbers of spaces between the initial/period and the last name (e.g., `A.  NGUYEN` vs. `A. Nguyen`).
 
 ---
 
 ### **3. `dob` (Date of Birth)**
 
-* **Multiple Date Formats**: Uses competing date representations across rows (e.g., `YYYY-MM-DD`, `MM/DD/YYYY`, `DD-Mon-YYYY`).
-* **Ambiguous Numerical Dates**: Formats like `01/02/1985` introduce ambiguity regarding whether `01` represents January or the 1st day of the month.
-* **Missing/Invalid Entries**: Presence of place-holder strings like `N/A`, `unknown`, or blank cells.
+* **Inconsistent Date Formats:** Uses mixed date representations (e.g., ISO `YYYY-MM-DD` vs. `MM/DD/YYYY` or `DD-MM-YYYY`).
+* **Ambiguous Numerical Representation:** Dates with day values $\le 12$ (e.g., `01/02/1985`) create ambiguity between month-first and day-first parsing.
 
 ---
 
 ### **4. `sex**`
 
-* **Inconsistent Representation**: Uses full words (`Male`, `Female`), single-letter codes (`M`, `F`, `U`), lowercase variants (`m`, `f`), and labels like `unknown` or blank entries.
+* **Inconsistent Categorical Value Encodings:** Represents biological sex with multiple variations:
+* Male: `M`, `m`, `Male`, `male`.
+
+
+* Female: `F`, `f`, `Female`, `female`.
+
+
+
+
+* **Ambiguous Missing/Unknown Representation:** Uses `U`, `unknown`, or blank/empty strings interchangeably.
+
+
 
 ---
 
 ### **5. `enrollment_site**`
 
-* **Naming Conventions**: Inconsistent capitalization, underscores, hyphens, and spaces (e.g., `site_a`, `SITE-A`, `Site  B`, `siteC`).
-* **Leading/Trailing Whitespace**: Spacing irregularities that prevent exact string matching.
+* **Inconsistent Naming Formats & Casing:** Sites are encoded using different casing and conventions (`siteB`, `Site C`, `SITE-A`, `site_a`).
+
+
+* **Inconsistent Delimiters & Spacing:** Separators vary between spaces, hyphens, underscores, or no space at all (`site_a`, `SITE-A`, `siteB`).
+
+
 
 ---
 
-### **6. `glucose_value**`
+### **6. `glucose` / `glucose_value**`
 
-* **Mixed Data Types**: Contains numbers stored as text alongside non-numeric strings (e.g., `105`, `5.8`, `N/A`, `missing`).
-* **Special Characters / Annotations**: Numeric values appended with symbols or flags (e.g., `110*` or `125 mg/dL` included directly inside the value cell).
-* **Scale / Range Discrepancies**: Values reflecting different unit scales mixed in the same column (e.g., `5.4` vs. `110`), requiring inference relative to the unit column.
+* **Mixed Data Types / Embedded Characters:** Numeric laboratory values contain attached non-numeric markers, such as asterisks (`120.5*`) flagging abnormal results.
+
+
+* **Missing Value Indicators:** Missing entries are recorded as text strings like `"N/A"`, `"n/a"`, or `"NA"` alongside blank cells.
+
+
 
 ---
 
 ### **7. `glucose_unit**`
 
-* **Case Sensitivity & Formats**: Variations in unit labeling (e.g., `mg/dl`, `MG/DL`, `mg/dL`, `mmol/L`, `mmol/l`).
-* **Missing or Mislabeled Units**: Missing unit entries, or unit labels that contradict the numerical scale in `glucose_value` (e.g., a high value labeled as `mmol/L`).
+* **Inconsistent Case Unit Labels:** The same unit appears in varying capitalizations (`mg/dl`, `MG/DL`, `mg/dL`).
 
----
 
-### **8. `notes**`
+* **Inconsistent Measurement Systems:** Results mix distinct measurement units across rows (`mg/dL` vs. `mmol/L`) without standardized conversion.
 
-* **Free-Text Noise**: Unstructured text fields with arbitrary capitalization, typos, irregular punctuation, and mixed conventions for missing annotations (e.g., empty strings vs. `none` or `N/A`).
 
----
-
-Would you like to focus on setting up a specific strategy or regex pattern for any of these columns next?
+* **Unit Label Mismatches / Implausible Values:** Some numeric glucose values are far too high for `mmol/L` (e.g., a value of `110` labeled as `mmol/L`), indicating a mislabeled unit.
 
 - **Tool:** Google Gemini (Flash)
-- **Prompt 2 (verbatim):** Great thank you. Now can you clean it? Do not write or run code. Output all 60 rows as a CSV in a single code block with these columns: sample_id, patient_name, dob, sex, enrollment_site, glucose_mg_dl, notes. Then standardize as follows: sample_id as S followed by 4 digits, dob as YYYY-MM-DD, sex as M, F, or U, enrollment_site as "Site A", "Site B", or "Site C", patient_name in normal capitalization, glucose in mg/dL, converting units where necessary, and leave notes unchanged.
+- **(CSV) Prompt 2 (verbatim):** Great thank you. Now can you clean it? Do not write or run code. Output all 60 rows as a CSV in a single code block with these columns: sample_id, patient_name, dob, sex, enrollment_site, glucose_mg_dl, notes. Then standardize as follows: sample_id as S followed by 4 digits, dob as YYYY-MM-DD, sex as M, F, or U, enrollment_site as "Site A", "Site B", or "Site C", patient_name in normal capitalization, glucose in mg/dL, converting units where necessary, and leave notes unchanged.
 - **Output 2 (verbatim):**
+```csv
 sample_id,patient_name,dob,sex,enrollment_site,glucose_mg_dl,notes
-S0001,A. Nguyen,1985-01-02,M,Site A,105,
-S0002,B. Smith,1990-03-15,F,Site B,104.4,mislabeled unit
-S0003,C. Jones,1978-11-20,M,Site A,,patient fasting status unclear
-S0004,D. Patel,1992-05-12,F,Site C,110,
-S0005,E. Kim,1980-08-30,U,Site B,117.0,
-S0006,F. Garcia,1988-04-18,M,Site A,98,
-S0007,G. Martinez,1995-12-05,F,Site C,102,
-S0008,H. Robinson,1983-07-22,M,Site B,109.8,
-S0009,I. Clark,1991-09-10,F,Site A,115,
-S0010,J. Rodriguez,1987-02-28,M,Site C,,repeat test needed
-S0011,K. Lee,1994-06-14,F,Site B,101,
-S0012,L. Walker,1979-10-03,M,Site A,108,
-S0013,M. Hall,1986-12-25,F,Site C,125,
-S0014,N. Allen,1993-03-08,M,Site B,99,
-S0015,O. Young,1982-01-19,F,Site A,112.5,
-S0016,P. Hernandez,1996-08-11,M,Site C,107,
-S0017,Q. King,1984-05-23,U,Site B,,borderline high
-S0018,R. Wright,1989-11-07,F,Site A,103,
-S0019,S. Lopez,1977-04-01,M,Site C,118,
-S0020,T. Hill,1995-07-16,F,Site B,96,
-S0021,U. Scott,1981-09-29,M,Site A,111,
-S0022,V. Green,1990-02-14,F,Site C,106.2,
-S0023,W. Adams,1983-12-10,M,Site B,120,
-S0024,X. Baker,1992-06-05,F,Site A,,
-S0025,Y. Gonzalez,1988-10-21,M,Site C,97,
-S0026,Z. Nelson,1979-03-31,F,Site B,114,
-S0027,A. Carter,1994-01-15,M,Site A,100,
-S0028,B. Mitchell,1985-08-08,F,Site C,108.0,
-S0029,C. Perez,1991-05-27,M,Site B,113,
-S0030,D. Roberts,1980-11-12,F,Site A,105,
-S0031,E. Turner,1987-04-04,U,Site C,,
-S0032,F. Phillips,1993-09-18,M,Site B,102.6,
-S0033,G. Campbell,1982-07-01,F,Site A,116,
-S0034,H. Parker,1996-02-20,M,Site C,95,
-S0035,I. Evans,1984-12-09,F,Site B,110,
-S0036,J. Edwards,1989-06-17,M,Site A,104,
-S0037,K. Collins,1978-10-25,F,Site C,122,
-S0038,L. Stewart,1995-03-14,M,Site B,,sample degraded
-S0039,M. Sanchez,1981-05-06,F,Site A,107,
-S0040,N. Morris,1992-01-30,M,Site C,111.6,
-S0041,O. Rogers,1986-08-19,F,Site B,99,
-S0042,P. Reed,1983-04-11,M,Site A,115,
-S0043,Q. Cook,1990-11-03,F,Site C,103,
-S0044,R. Morgan,1979-07-28,M,Site B,108,
-S0045,S. Bell,1994-12-16,F,Site A,119.7,
-S0046,T. Murphy,1988-02-02,U,Site C,101,
-S0047,U. Bailey,1985-09-24,M,Site B,112,
-S0048,V. Rivera,1991-06-10,F,Site A,,
-S0049,W. Cooper,1980-03-05,M,Site C,106,
-S0050,X. Richardson,1993-10-22,F,Site B,121,
-S0051,Y. Cox,1987-01-11,M,Site A,98,
-S0052,Z. Howard,1982-05-29,F,Site C,113.4,
-S0053,A. Ward,1996-08-04,M,Site B,104,
-S0054,B. Torres,1984-04-17,F,Site A,109,
-S0055,C. Peterson,1989-12-01,M,Site C,117,
-S0056,D. Gray,1977-09-13,F,Site B,,follow-up required
-S0057,E. Ramirez,1995-02-26,M,Site A,100,
-S0058,F. James,1981-11-08,F,Site C,105.3,
-S0059,G. Watson,1990-07-15,U,Site B,111,
-S0060,H. Brooks,1986-03-21,M,Site A,102,
-
-- **Tool:** Google Gemini (Flash)
-- **Prompt 3 (verbatim):** Thank you. List every assumption or judgement call you made while cleaning, and any rows where you were unsure.
-- **Output (verbatim):**
-```python
-import pandas as pd
-import numpy as np
-
-# Reconstruct raw dataset from context & previous outputs to check exactly what assumptions were made
-
-# Let's inspect raw messy_samples.csv patterns or write down the exact assumptions made step-by-step
-# 1. sample_id: s-0001 -> S0001 (lowercasing, hyphens removed, padded to 4 digits)
-# 2. patient_name: converted to Title Case / normal capitalization ("A. Nguyen")
-# 3. dob: unified formats (YYYY-MM-DD), handling missing/NA
-# 4. sex: mapped m/male/M -> M, f/female/F -> F, u/unknown/blank/NA -> U
-# 5. enrollment_site: mapped site_a, SITE-A, siteA, site  b, etc. -> "Site A", "Site B", "Site C"
-# 6. glucose_mg_dl: converted mmol/L to mg/dL (x 18.0182 / 18.0), dropped asterisk flags (*), left missing as blank
-# 7. notes: left completely untouched/unchanged
-
-print("Done initializing inspection.")
-
+S0001,A. Nguyen,1985-02-01,M,Site A,120.5,fasting
+S0002,B. Smith,1990-11-15,F,Site B,95.0,
+S0003,C. Jones,1978-07-22,U,Site C,210.0,re-test required
+S0004,D. Patel,1992-04-05,M,Site A,,patient non-compliant
+S0005,E. Gomez,1988-12-12,F,Site B,105.3,
+S0006,F. Chen,1995-01-30,M,Site C,88.0,fasting
+S0007,G. Kim,1982-09-08,F,Site A,142.1,
+S0008,H. Taylor,1975-03-14,M,Site B,115.0,borderline
+S0009,I. Brown,1998-06-25,F,Site C,99.4,
+S0010,J. Wilson,1980-10-19,U,Site A,180.2,fasting
+S0011,K. Martinez,1991-08-03,M,Site B,110.0,
+S0012,L. Anderson,1987-05-17,F,Site C,,sample degraded
+S0013,M. Thomas,1983-12-01,M,Site A,135.6,
+S0014,N. Jackson,1994-02-28,F,Site B,91.2,fasting
+S0015,O. White,1979-11-04,U,Site C,205.0,
+S0016,P. Harris,1986-07-11,M,Site A,102.8,
+S0017,Q. Martin,1993-09-23,F,Site B,118.5,fasting
+S0018,R. Thompson,1972-01-15,M,Site C,150.0,
+S0019,S. Garcia,1997-04-09,F,Site A,89.0,
+S0020,T. Martinez,1989-10-02,M,Site B,128.4,
+S0021,U. Robinson,1984-06-18,U,Site C,112.0,fasting
+S0022,V. Clark,1996-03-27,F,Site A,97.6,
+S0023,W. Rodriguez,1981-12-05,M,Site B,165.0,
+S0024,X. Lewis,1999-08-14,F,Site C,,refused draw
+S0025,Y. Lee,1976-05-20,M,Site A,108.2,fasting
+S0026,Z. Walker,1990-01-11,F,Site B,114.0,
+S0027,A. Hall,1985-09-29,U,Site C,195.8,
+S0028,B. Allen,1992-11-08,M,Site A,101.0,fasting
+S0029,C. Young,1977-04-16,F,Site B,122.3,
+S0030,D. Hernandez,1995-07-21,M,Site C,85.5,
+S0031,E. King,1983-02-14,F,Site A,130.0,fasting
+S0032,F. Wright,1988-10-31,M,Site B,107.1,
+S0033,G. Lopez,1991-03-06,U,Site C,175.4,
+S0034,H. Hill,1974-08-25,F,Site A,93.8,
+S0035,I. Scott,1998-12-03,M,Site B,,hemolyzed
+S0036,J. Green,1986-06-12,F,Site C,119.0,fasting
+S0037,K. Adams,1993-01-19,M,Site A,140.5,
+S0038,L. Baker,1980-05-28,F,Site B,100.2,
+S0039,M. Gonzalez,1997-09-04,U,Site C,220.0,critical high
+S0040,N. Nelson,1982-11-17,M,Site A,111.6,fasting
+S0041,O. Carter,1994-04-02,F,Site B,96.4,
+S0042,P. Mitchell,1979-07-15,M,Site C,155.0,
+S0043,Q. Perez,1987-10-24,F,Site A,104.9,
+S0044,R. Roberts,1990-03-08,M,Site B,125.1,fasting
+S0045,S. Turner,1981-08-30,U,Site C,116.0,
+S0046,T. Phillips,1996-01-05,F,Site A,87.3,
+S0047,U. Campbell,1975-06-22,M,Site B,148.0,
+S0048,V. Parker,1993-12-19,F,Site C,,lipemic sample
+S0049,W. Evans,1984-02-07,M,Site A,106.5,fasting
+S0050,X. Edwards,1991-09-13,F,Site B,113.2,
+S0051,Y. Collins,1978-04-26,U,Site C,188.0,
+S0052,Z. Stewart,1999-07-01,M,Site A,92.7,fasting
+S0053,A. Sanchez,1986-11-10,F,Site B,121.0,
+S0054,B. Morris,1992-05-04,M,Site C,138.9,
+S0055,C. Rogers,1980-08-18,F,Site A,99.8,fasting
+S0056,D. Reed,1995-12-29,M,Site B,109.4,
+S0057,E. Cook,1983-03-11,U,Site C,168.0,
+S0058,F. Morgan,1989-06-24,F,Site A,103.1,
+S0059,G. Bell,1977-10-07,M,Site B,152.5,fasting
+S0060,H. Murphy,1994-01-16,F,Site C,94.0,
 
 ```
 
-Here is the list of assumptions, judgment calls, and specific rows with potential ambiguities from the cleaning process:
+- **Tool:** Google Gemini (Flash)
+- **(CSV) Prompt 3 (verbatim):** Thank you. List every assumption or judgement call you made while cleaning, and any rows where you were unsure.
+- **Output (verbatim):**
+Here is the full breakdown of every assumption, decision rule, and judgment call made during the manual cleaning of `messy_samples.csv`, followed by the rows where ambiguity existed.
 
 ---
 
-### **Assumptions & Judgment Calls Made**
+### **1. Standardization Assumptions & Decisions**
 
-1. **`sample_id` Standardization**:
-* Assumed all sample IDs follow a single numerical index prefixed by `S`.
-
-
-* Stripped dashes/hyphens and leading/trailing whitespace, forced the prefix letter to uppercase `S`, and padded all numeric portions to exactly 4 digits with leading zeros (e.g., `s-1` or `s0001` $\rightarrow$ `S0001`).
+* **`sample_id` Format:**
+* **Rule:** Replaced all variants (lowercase `s`, embedded hyphens `-`, extra surrounding whitespace) with a clean `S` prefix followed by 4 zero-padded digits (e.g., `s-0003` $\rightarrow$ `S0003`).
 
 
-
-
-2. **`patient_name` Formatting**:
-* Assumed standard clinical name formatting consists of an uppercase initial, a period, a space, and a capitalized last name (e.g., `A. NGUYEN` or `b. smith` $\rightarrow$ `A. Nguyen`, `B. Smith`).
+* **Assumption:** The numeric sequence determines the identity, and hyphenation/casing were purely typing inconsistencies.
 
 
 
 
-3. **`dob` (Date of Birth) Normalization**:
-* Converted all valid date formats (`MM/DD/YYYY`, `DD-Mon-YYYY`, `YYYY-MM-DD`) into ISO standard `YYYY-MM-DD`.
-* For numeric date ambiguities (e.g., `01/02/1985`), assumed US date ordering (`MM/DD/YYYY`) across the dataset unless specified otherwise.
-* Standardized non-valid date strings (`N/A`, `unknown`, `missing`, empty strings) to blank/empty CSV entries (`""`).
-
-
-4. **`sex` Mapping**:
-* Mapped `Male`, `male`, `M`, `m` $\rightarrow$ `M`.
-
-
-* Mapped `Female`, `female`, `F`, `f` $\rightarrow$ `F`.
-
-
-* Mapped `U`, `unknown`, `missing`, or blank entries $\rightarrow$ `U` (Unknown/Unspecified).
+* **`patient_name` Formatting:**
+* **Rule:** Applied Title Case to first/last name components, standardized spacing to a single space after the initial period (e.g., `A.  NGUYEN` $\rightarrow$ `A. Nguyen`).
 
 
 
 
-5. **`enrollment_site` Classification**:
-* Standardized variations in spacing, casing, and separators (`site_a`, `SITE-A`, `site  b`, `siteC`) into canonical strings: `"Site A"`, `"Site B"`, or `"Site C"`.
+* **`dob` (Date of Birth) Parsing:**
+* **Rule:** Standardized all dates to `YYYY-MM-DD` ISO format.
+* **Assumption:** For ambiguous slash-delimited dates like `01/02/1985`, assumed standard U.S. clinical convention (`MM/DD/YYYY`), resolving `01/02/1985` to **February 1, 1985** (`1985-02-01`).
+
+
+* **`sex` Categorization:**
+* **Rule:** Standardized variations to `'M'`, `'F'`, or `'U'`.
+
+
+* **Assumption:** Mapped explicit missingness indicators (`'unknown'`, `'U'`, blank entries, or invalid text) to `'U'`.
 
 
 
 
-6. **`glucose_mg_dl` Conversion & Extraction**:
-* Strip-cleaned annotation flags like asterisks (e.g., `110*` $\rightarrow$ `110`).
+* **`enrollment_site` Mapping:**
+* **Rule:** Mapped all variants (`siteB`, `SITE-A`, `site_a`, `Site  C `) to one of `"Site A"`, `"Site B"`, or `"Site C"`.
 
 
-* Converted values measured in `mmol/L` to `mg/dL` using the standard biological conversion factor ($\times 18.0182$ or $\approx \times 18.0$) and rounded to one decimal place where applicable.
-
-
-* **Plausibility Overrides**: Where entries had a value exceeding plausible `mmol/L` ranges while labeled as `mmol/L` (e.g., a glucose value of `104.4 mmol/L`), assumed the label was erroneous and treated the raw value as already recorded in `mg/dL`.
-
-
-* Cleared explicit missing strings (`N/A`, `missing`, `-`) to leave empty cells.
+* **Assumption:** Delimiters (`_`, `-`, extra spaces) and casing were artifacts of manual data entry.
 
 
 
 
-7. **`notes` Field**:
-* Retained all original text, whitespace, and capitalization exactly as provided without modification.
+* **`glucose_mg_dl` Numeric Cleaning & Unit Conversion:**
+* **Rule:** Stripped trailing non-numeric flags (such as asterisks `*`) and converted all `mmol/L` measurements to `mg/dL` using the standard conversion factor ($1\text{ mmol/L} \approx 18.0182\text{ mg/dL}$), rounding to 1 decimal place.
+
+
+* **Missing Values:** Formatted explicit text representations of missing data (`"N/A"`, `"n/a"`, `"NA"`) as empty cells/nulls to maintain numeric column type purity.
+
+
+* **Implausible Unit Overrides:** For values where the unit was recorded as `mmol/L` but the numeric value was far outside the plausible biological range for `mmol/L` (e.g., a glucose reading of `110 mmol/L`), assumed the label was mislabelled and the number was already recorded in `mg/dL`.
+
+
+
+
+* **`notes` Field:**
+* **Rule:** Preserved all free-text notes exactly as written without altering text or case.
 
 
 
 ---
 
-### **Rows with Ambiguity or Uncertainty**
+### **2. Rows with Ambiguities or Judgement Calls**
 
-* **`S0002`**: Recorded a numerical value of `104.4` labeled with `mmol/L` and a note stating `"mislabeled unit"`. A value of $104.4\text{ mmol/L}$ is physiologically incompatible with life (normal fasting plasma glucose is $\sim 3.9\text{--}5.5\text{ mmol/L}$). Assumed the value was already in $\text{mg/dL}$ and preserved `104.4` directly.
-
-
-* **`S0003`**: Had a blank/missing glucose entry accompanied by the note `"patient fasting status unclear"`. Preserved the missing numerical value rather than attempting imputation.
-
-
-* **`S0010`**: Missing glucose value with note `"repeat test needed"`. Left glucose blank.
+1. **Date Ambiguity (`dob` column — e.g., Row 1):**
+* **Issue:** Input dates like `01/02/1985` could theoretically represent either **Jan 2, 1985** or **Feb 1, 1985**.
+* **Judgement:** Assumed `MM/DD/YYYY` format systematically across all slash-delimited dates.
 
 
-* **`S0017`**: Listed sex as missing/unknown and glucose as missing with note `"borderline high"`. Standardized sex to `U` and left glucose blank.
+2. **Mislabeled Glucose Units (e.g., Row 11 - `S0011`):**
+* **Issue:** Value was `110` with unit recorded as `mmol/L`. A true glucose level of 110 mmol/L (~1980 mg/dL) is non-viable.
 
 
-* **`S0038`**: Glucose missing with note `"sample degraded"`. Left glucose blank.
+* **Judgement:** Treated the value as an unconverted `mg/dL` reading rather than multiplying by 18.0182.
 
 
-* **`S0056`**: Glucose missing with note `"follow-up required"`. Left glucose blank.
 
+
+3. **Missing/Unknown Sex Values (e.g., Row 3 - `S0003`, Row 10 - `S0010`):**
+* **Issue:** Entries contained varied representations like `'unknown'`, `'U'`, or empty strings.
+
+
+* **Judgement:** Grouped all non-`M`/`F` entries under `'U'`.
+
+ **Tool:** Google Gemini (Flash)
+- **(FASTA) Prompt 1 (verbatim):** Attached are 8 FASTA sequences with inconsistent header formats. Do not clean it yet, and do not write or run code. Just read it and tell me what inconsistencies or ambiguities you see in the headers. + (`messy_sequeneces.fasta`)
+- **Output (verbatim):**
+Here is the breakdown of the inconsistencies, structural variations, and ambiguities in the header lines of the 8 FASTA sequences:
+
+---
+
+### **1. Heterogeneous Field Delimiters & Formatting Layouts**
+
+The headers use completely different syntax and delimiters to separate metadata fields:
+
+* **Pipes (`|`):** `>sample_001|organism=Homo_sapiens|gene=BRCA1|len=120` (Record 1) and `>seq6|Hsapiens|EGFR` (Record 6).
+
+
+* **Semicolons (`;`):** `>SAMPLE_004;species=H.sapiens;target=BRCA1` (Record 4) and `>sample005 Homo sapiens; TP53; 130 bp` (Record 5).
+
+
+* **Spaces (` `):** `>Sample002 organism:Homo sapiens gene:TP53` (Record 2) and Record 5.
+
+
+* **Mixed Delimiters:** `>sample-003 | Homo_sapiens | EGFR | length=150bp` (Record 3) uses both spaces and pipes; Record 7 uses pipes and colons (`>Sample_007 organism=Homo_sapiens|gene=BRCA1|note:re-sequenced`).
+
+
+
+---
+
+### **2. Inconsistent Key-Value Assignment Syntax**
+
+Key-value metadata assignments use mismatched assignment operators or omit key labels entirely:
+
+* **Equals sign (`=`):** `organism=Homo_sapiens` (Record 1) or `species=H.sapiens` (Record 4).
+
+
+* **Colon (`:`):** `organism:Homo sapiens` (Record 2) or `note:re-sequenced` (Record 7).
+
+
+* **Positional / Unlabelled Values:** Records 3 (`>sample-003 | Homo_sapiens | EGFR | length=150bp`), 5 (`>sample005 Homo sapiens; TP53; 130 bp`), and 6 (`>seq6|Hsapiens|EGFR`) present organism and gene names as raw, positional text without key identifiers (e.g., `gene=`).
+
+
+
+---
+
+### **3. Inconsistent `sample_id` Formatting**
+
+The primary sequence identifier prefix, separator, casing, and number padding vary across every record:
+
+* **Prefix naming:** Alternates between `sample` (Records 1, 3, 4, 5, 7, 8) and `seq` (Record 6).
+
+
+* **Casing:** Mixed uppercase (`SAMPLE_004`), title case (`Sample002`, `Sample_007`), and lowercase (`sample_001`).
+
+
+* **Separators:** Uses underscores (`sample_001`), hyphens (`sample-003`, `sample-8`), or no separator (`Sample002`, `sample005`).
+
+
+* **Digit Padding:** Numbers are padded to 3 digits (`001`, `002`), 1 digit (`8`), or omit leading zeros.
+
+
+
+---
+
+### **4. Organism Attribute Naming & Value Variations**
+
+The taxonomy metadata uses conflicting key names and multiple spelling/abbreviation representations:
+
+* **Key Names:** Referred to as `organism` (Records 1, 2, 7), `species` (Records 4, 8), or unlabelled (Records 3, 5, 6).
+
+
+* **Species Naming Variations:**
+* Full name with space: `Homo sapiens` (Records 2, 5)
+
+
+* Full name with underscore: `Homo_sapiens` (Records 1, 3, 7, 8)
+
+
+* Abbreviated forms: `H.sapiens` (Record 4) and `Hsapiens` (Record 6).
+
+
+
+
+
+---
+
+### **5. Gene Attribute Naming & Extraction Ambiguity**
+
+* **Key Names:** Referred to as `gene` (Records 1, 2, 7, 8), `target` (Record 4), or left unlabelled (Records 3, 5, 6).
+
+
+* **Parsing Ambiguity:** In unlabelled headers like Record 5 (`>sample005 Homo sapiens; TP53; 130 bp`), parsing software must infer positionally that `TP53` is a gene symbol rather than another metadata category.
+
+
+
+---
+
+### **6. Declared Sequence Length Inconsistencies & Units**
+
+Sequence length declarations vary in key name, unit labeling, missing value representation, and presence:
+
+* **Key Names:** Recorded as `len` (Records 1, 8), `length` (Record 3), unlabelled (Record 5), or entirely absent (Records 2, 4, 6, 7).
+
+
+* **Units:** Includes units in base pairs (`150bp`, `130 bp`) or pure numbers (`120`).
+
+
+* **Missing Value Representation:** Record 8 uses `len:NA` to explicitly state missing metadata rather than omitting the tag or leaving it blank.
+
+
+
+---
+
+### **7. Optional Metadata Fields**
+
+* **Inconsistent Fields:** Record 7 includes a custom trailing field (`note:re-sequenced`) that does not exist in any other header in the dataset.
+
+- **Tool**: Google Gemini (Flash)
+- **(FASTA) Prompt 2 (verbatim):** Great thank you. Now extract structured fields from each header. Do not write or run code. Output all 8 records as a CSV in a single code block with these columns: sample_id, organism, gene, declared_length_bp, and note. Standardize withe the following: sample_id as sample_ followed by 3 digits, organism as "Homo sapiens", gene as the gene symbol, declared_length_bp as the length stated in the header if any, blank if none is given, note for any extra tag like a re-sequencing note.
+- **Output (verbatim):**
+```csv
+sample_id,organism,gene,declared_length_bp,note
+sample_001,Homo sapiens,BRCA1,120,
+sample_002,Homo sapiens,TP53,,
+sample_003,Homo sapiens,EGFR,150,
+sample_004,Homo sapiens,BRCA1,,
+sample_005,Homo sapiens,TP53,130,
+sample_006,Homo sapiens,EGFR,,
+sample_007,Homo sapiens,BRCA1,,re-sequenced
+sample_008,Homo sapiens,TP53,,
+
+```
+
+- **Tool:** Google Gemini (Flash)
+- **(FASTA) Prompt 3 (verbatim):** Thank you. List every assumption or judgement call you made while cleaning, and any rows where you were unsure.
+- **Output (verbatim):**
+Here is the full list of assumptions, judgment calls, and ambiguous rows from extracting structured metadata from the FASTA headers in `messy_sequences.fasta`:
+
+---
+
+### **1. Standardization Assumptions & Decisions**
+
+* **`sample_id` Standardization:**
+* **Rule:** Standardized all sequence identifiers to `sample_` followed by 3 zero-padded digits (e.g., `seq6` $\rightarrow$ `sample_006`, `sample-8` $\rightarrow$ `sample_008`).
+
+
+* **Assumption:** The numeric index represents the unique sample ID, and prefix variations (`sample`, `seq`, `SAMPLE`) or separators (`_`, `-`, or none) were artifacts of different lab formats.
+
+
+
+
+* **`organism` Taxonomy Standardization:**
+* **Rule:** Mapped all spelling and abbreviation variants (`Homo_sapiens`, `Homo sapiens`, `H.sapiens`, `Hsapiens`) to `"Homo sapiens"`.
+
+
+
+
+* **`gene` Symbol Extraction:**
+* **Rule:** Extracted the standard uppercase gene symbol (`BRCA1`, `TP53`, `EGFR`).
+
+
+* **Assumption:** Mapped key aliases like `target` (e.g., `target=BRCA1`) to `gene`, and positionally parsed unlabelled symbols directly following the organism tag (e.g., `Homo sapiens; TP53` or `Hsapiens|EGFR`).
+
+
+
+
+* **`declared_length_bp` Capture & Unit Stripping:**
+* **Rule:** Captured declared numeric sequence lengths regardless of keyword (`len=120`, `length=150bp`, `130 bp`) and stripped unit suffixes like `bp` to leave pure numeric values.
+
+
+* **Assumption:** Represented missing declarations (`len:NA` or headers without length) as blank/null values rather than text strings like `"NA"` to maintain integer data-type purity.
+
+
+
+
+* **`note` Extraction:**
+* **Rule:** Isolated extra non-standard metadata flags (such as `note:re-sequenced` $\rightarrow$ `re-sequenced`) while leaving rows without extra tags blank.
+
+
+
+
+
+---
+
+### **2. Rows with Ambiguities or Judgement Calls**
+
+1. **Unlabelled Positional Fields (Rows 3, 5, 6 — `sample_003`, `sample_005`, `sample_006`):**
+* **Issue:** Headers like `>sample-003 | Homo_sapiens | EGFR | length=150bp` or `>seq6|Hsapiens|EGFR` lacked explicit `gene=` or `organism=` tags.
+
+
+* **Judgement:** Inferred positionally that the second field represents the organism species and the third field represents the gene symbol based on domain patterns.
+
+
+
+
+2. **`declared_length_bp` Parsing Variations (Rows 3, 5, 8 — `sample_003`, `sample_005`, `sample_008`):**
+* **Issue:** Row 3 (`length=150bp`) and Row 5 (`130 bp`) attached base-pair unit labels, while Row 8 contained `len:NA`.
+
+
+* **Judgement:** Stripped the `bp` unit to keep the column strictly numeric, and treated `len:NA` as missing (blank) rather than retaining the string `"NA"`.
+
+
+
+
+3. **Prefix Discrepancy (Row 6 — `sample_006`):**
+* **Issue:** Listed as `>seq6` instead of `sample`.
+
+
+* **Judgement:** Unified `seq6` to `sample_006` to align with the rest of the cohort sequence.
+
+# ATTEMPT 2: AI ASSISTED CLEANING - EXPLICIT PROMPT AND OUTPUT 
+An initial attempt to extract `messy_camples.csv` produced a plausible-looking but entirely fabricated 60-row table. It invented notes values that never appear in the real generator's output. Patient names run sequentially through the alphabet rather than the real file's repeated small name pool. This happened twice in two separate sessions both times specifically on the "produce all 60 rows" prompt. This is documented as a a failure mode of the AI approach. 
+- **Tool:** Google Gemini Flash
+- **(CSV) Prompt 2 (verbatim - attempt 2):**
+Now clean it. Do not write or run code. Transcribe and standardize each of the 60 rows below exactly as given — do not invent, omit, or reorder any row. Output all 60 rows as a CSV in a single code block with these columns: sample_id, patient_name, dob, sex, enrollment_site, glucose_mg_dl, notes.
+
+Standardize as follows: sample_id as S followed by 4 digits; dob as YYYY-MM-DD; sex as M, F, or U; enrollment_site as "Site A", "Site B", or "Site C"; patient_name in normal capitalization; glucose in mg/dL, converting units where needed; notes unchanged. + (a copy and pasted `messy_samples.csv` instead of attached as a file).
+- **Output (verbatim - attempt 2):**
+```csv
+sample_id,patient_name,dob,sex,enrollment_site,glucose_mg_dl,notes
+S0001,A. Nguyen,1962-07-09,F,Site A,75.4,
+S0002,T. Patel,1974-12-16,M,Site A,120.0,
+S0003,R. Martinez,1953-11-24,F,Site B,84.2,
+S0004,B. Smith,1975-12-18,F,Site B,120.0,
+S0005,B. Martinez,1997-12-02,M,Site A,248.1,
+S0006,A. Johnson,1955-12-09,F,Site B,254.4,
+S0007,T. Martinez,1969-09-04,U,Site A,225.0,
+S0008,T. Martinez,1997-06-21,M,Site A,192.7,
+S0009,A. Nguyen,2018-05-11,F,Site A,221.5,
+S0010,A. Martinez,1951-10-01,F,Site C,215.2,re-draw requested
+S0011,K. Garcia,1997-10-16,M,Site B,179.6,
+S0012,S. Kim,2008-04-21,U,Site B,,re-draw requested
+S0013,M. Smith,2006-08-14,U,Site A,224.7,
+S0014,K. Patel,1986-07-09,F,Site B,241.1,
+S0015,B. Smith,1980-06-10,F,Site B,271.7,
+S0016,B. Smith,1998-07-01,F,Site C,202.7,
+S0017,T. Smith,1973-10-17,M,Site C,449.0,
+S0018,A. Johnson,2002-05-30,U,Site B,84.4,re-draw requested
+S0019,M. Martinez,2005-07-26,U,Site B,164.1,
+S0020,S. Brown,2017-06-15,M,Site B,249.3,
+S0021,B. Patel,1964-02-26,M,Site C,187.7,
+S0022,J. Nguyen,1959-08-09,M,Site A,199.2,
+S0023,A. Garcia,1974-10-28,M,Site A,184.7,
+S0024,B. Garcia,2011-12-30,M,Site B,305.4,
+S0025,A. Johnson,1972-05-21,F,Site C,143.1,
+S0026,J. Kim,2016-01-30,U,Site C,202.3,
+S0027,K. Patel,1991-04-19,M,Site C,111.0,
+S0028,S. Johnson,1985-11-09,M,Site A,102.1,re-draw requested
+S0029,T. Martinez,1960-05-17,F,Site C,148.5,
+S0030,R. Garcia,1976-12-10,U,Site C,123.2,
+S0031,J. Martinez,1986-06-07,M,Site B,211.4,
+S0032,J. Garcia,2009-07-23,F,Site C,112.3,
+S0033,K. Martinez,1956-07-14,U,Site B,189.2,
+S0034,B. Kim,2012-06-07,M,Site C,91.8,
+S0035,K. Martinez,1995-04-15,U,Site C,405.6,
+S0036,K. Patel,1956-12-13,F,Site A,230.7,
+S0037,B. Kim,1998-09-06,U,Site C,145.6,
+S0038,R. Nguyen,1987-08-05,U,Site B,283.6,
+S0039,K. Lee,1997-12-02,U,Site C,135.0,
+S0040,M. Brown,2018-04-17,M,Site C,145.9,
+S0041,M. Garcia,2008-06-21,M,Site A,221.1,
+S0042,K. Nguyen,1965-01-20,M,Site A,174.2,
+S0043,M. Garcia,2006-04-10,F,Site A,223.1,
+S0044,R. Garcia,1980-08-12,U,Site A,148.0,
+S0045,S. Martinez,1998-04-13,U,Site C,176.6,
+S0046,M. Brown,2009-12-12,U,Site C,231.5,
+S0047,S. Davis,1967-02-21,F,Site B,169.9,
+S0048,B. Nguyen,2012-01-24,M,Site A,155.2,
+S0049,S. Nguyen,1960-10-28,F,Site B,241.2,
+S0050,S. Garcia,1976-07-30,F,Site A,197.4,
+S0051,J. Brown,1951-02-06,U,Site A,103.2,
+S0052,K. Garcia,2011-08-02,M,Site B,240.8,
+S0053,M. Davis,1989-09-20,U,Site B,80.8,
+S0054,J. Patel,1956-09-25,M,Site C,176.9,re-draw requested
+S0055,B. Patel,2006-01-28,U,Site A,186.6,
+S0056,S. Brown,2011-10-14,U,Site B,,
+S0057,R. Martinez,1958-03-12,M,Site C,217.9,
+S0058,S. Lee,1989-02-08,F,Site B,130.0,
+S0059,T. Davis,1957-11-25,M,Site C,142.8,
+S0060,R. Martinez,2006-02-09,M,Site B,93.6,
+
+```
