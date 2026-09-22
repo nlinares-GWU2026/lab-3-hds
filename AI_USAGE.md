@@ -1226,3 +1226,244 @@ age_years range: 8 to 75
 Wrote 60 rows to data/processed/samples_analytic.csv
 ```
 
+# AI ASSISTED CLEANING - EXPLICIT PROMPT AND OUTPUT
+- **Tool:** Google Gemini (Flash)
+- **Prompt 1 (verbatim):** Below is a small clinical sample CSV (60 rows). Do not clean it yet, do not write or run code. Just read it and tell me, column by column, what inconsistencies or ambiguities you find + (`messy_samples.csv`)  
+- **Output (verbatim):**
+Here is a column-by-column breakdown of the inconsistencies, formatting variations, and ambiguities in `messy_samples.csv`:
+
+---
+
+### **1. `sample_id**`
+
+* **Case & Separator Inconsistencies**: Mixes lowercase and uppercase prefixes with or without hyphens (e.g., `s-0001`, `S0002`, `s0003`, `S-0004`).
+* **Leading/Trailing Whitespace**: Unwanted spaces surrounding entries (e.g., `' S0007 '`).
+* **Padding & Formatting Irregularities**: Variations in zero-padding or prefix style across entries.
+
+---
+
+### **2. `patient_name**`
+
+* **Capitalization Mismatches**: Variations between ALL CAPS, lowercase, and Mixed Case (e.g., `A. NGUYEN`, `b. smith`, `C. Jones`).
+* **Whitespace & Punctuation**: Inconsistent spacing around periods and initials (e.g., missing spaces after dots or extra spaces).
+
+---
+
+### **3. `dob` (Date of Birth)**
+
+* **Multiple Date Formats**: Uses competing date representations across rows (e.g., `YYYY-MM-DD`, `MM/DD/YYYY`, `DD-Mon-YYYY`).
+* **Ambiguous Numerical Dates**: Formats like `01/02/1985` introduce ambiguity regarding whether `01` represents January or the 1st day of the month.
+* **Missing/Invalid Entries**: Presence of place-holder strings like `N/A`, `unknown`, or blank cells.
+
+---
+
+### **4. `sex**`
+
+* **Inconsistent Representation**: Uses full words (`Male`, `Female`), single-letter codes (`M`, `F`, `U`), lowercase variants (`m`, `f`), and labels like `unknown` or blank entries.
+
+---
+
+### **5. `enrollment_site**`
+
+* **Naming Conventions**: Inconsistent capitalization, underscores, hyphens, and spaces (e.g., `site_a`, `SITE-A`, `Site  B`, `siteC`).
+* **Leading/Trailing Whitespace**: Spacing irregularities that prevent exact string matching.
+
+---
+
+### **6. `glucose_value**`
+
+* **Mixed Data Types**: Contains numbers stored as text alongside non-numeric strings (e.g., `105`, `5.8`, `N/A`, `missing`).
+* **Special Characters / Annotations**: Numeric values appended with symbols or flags (e.g., `110*` or `125 mg/dL` included directly inside the value cell).
+* **Scale / Range Discrepancies**: Values reflecting different unit scales mixed in the same column (e.g., `5.4` vs. `110`), requiring inference relative to the unit column.
+
+---
+
+### **7. `glucose_unit**`
+
+* **Case Sensitivity & Formats**: Variations in unit labeling (e.g., `mg/dl`, `MG/DL`, `mg/dL`, `mmol/L`, `mmol/l`).
+* **Missing or Mislabeled Units**: Missing unit entries, or unit labels that contradict the numerical scale in `glucose_value` (e.g., a high value labeled as `mmol/L`).
+
+---
+
+### **8. `notes**`
+
+* **Free-Text Noise**: Unstructured text fields with arbitrary capitalization, typos, irregular punctuation, and mixed conventions for missing annotations (e.g., empty strings vs. `none` or `N/A`).
+
+---
+
+Would you like to focus on setting up a specific strategy or regex pattern for any of these columns next?
+
+- **Tool:** Google Gemini (Flash)
+- **Prompt 2 (verbatim):** Great thank you. Now can you clean it? Do not write or run code. Output all 60 rows as a CSV in a single code block with these columns: sample_id, patient_name, dob, sex, enrollment_site, glucose_mg_dl, notes. Then standardize as follows: sample_id as S followed by 4 digits, dob as YYYY-MM-DD, sex as M, F, or U, enrollment_site as "Site A", "Site B", or "Site C", patient_name in normal capitalization, glucose in mg/dL, converting units where necessary, and leave notes unchanged.
+- **Output 2 (verbatim):**
+sample_id,patient_name,dob,sex,enrollment_site,glucose_mg_dl,notes
+S0001,A. Nguyen,1985-01-02,M,Site A,105,
+S0002,B. Smith,1990-03-15,F,Site B,104.4,mislabeled unit
+S0003,C. Jones,1978-11-20,M,Site A,,patient fasting status unclear
+S0004,D. Patel,1992-05-12,F,Site C,110,
+S0005,E. Kim,1980-08-30,U,Site B,117.0,
+S0006,F. Garcia,1988-04-18,M,Site A,98,
+S0007,G. Martinez,1995-12-05,F,Site C,102,
+S0008,H. Robinson,1983-07-22,M,Site B,109.8,
+S0009,I. Clark,1991-09-10,F,Site A,115,
+S0010,J. Rodriguez,1987-02-28,M,Site C,,repeat test needed
+S0011,K. Lee,1994-06-14,F,Site B,101,
+S0012,L. Walker,1979-10-03,M,Site A,108,
+S0013,M. Hall,1986-12-25,F,Site C,125,
+S0014,N. Allen,1993-03-08,M,Site B,99,
+S0015,O. Young,1982-01-19,F,Site A,112.5,
+S0016,P. Hernandez,1996-08-11,M,Site C,107,
+S0017,Q. King,1984-05-23,U,Site B,,borderline high
+S0018,R. Wright,1989-11-07,F,Site A,103,
+S0019,S. Lopez,1977-04-01,M,Site C,118,
+S0020,T. Hill,1995-07-16,F,Site B,96,
+S0021,U. Scott,1981-09-29,M,Site A,111,
+S0022,V. Green,1990-02-14,F,Site C,106.2,
+S0023,W. Adams,1983-12-10,M,Site B,120,
+S0024,X. Baker,1992-06-05,F,Site A,,
+S0025,Y. Gonzalez,1988-10-21,M,Site C,97,
+S0026,Z. Nelson,1979-03-31,F,Site B,114,
+S0027,A. Carter,1994-01-15,M,Site A,100,
+S0028,B. Mitchell,1985-08-08,F,Site C,108.0,
+S0029,C. Perez,1991-05-27,M,Site B,113,
+S0030,D. Roberts,1980-11-12,F,Site A,105,
+S0031,E. Turner,1987-04-04,U,Site C,,
+S0032,F. Phillips,1993-09-18,M,Site B,102.6,
+S0033,G. Campbell,1982-07-01,F,Site A,116,
+S0034,H. Parker,1996-02-20,M,Site C,95,
+S0035,I. Evans,1984-12-09,F,Site B,110,
+S0036,J. Edwards,1989-06-17,M,Site A,104,
+S0037,K. Collins,1978-10-25,F,Site C,122,
+S0038,L. Stewart,1995-03-14,M,Site B,,sample degraded
+S0039,M. Sanchez,1981-05-06,F,Site A,107,
+S0040,N. Morris,1992-01-30,M,Site C,111.6,
+S0041,O. Rogers,1986-08-19,F,Site B,99,
+S0042,P. Reed,1983-04-11,M,Site A,115,
+S0043,Q. Cook,1990-11-03,F,Site C,103,
+S0044,R. Morgan,1979-07-28,M,Site B,108,
+S0045,S. Bell,1994-12-16,F,Site A,119.7,
+S0046,T. Murphy,1988-02-02,U,Site C,101,
+S0047,U. Bailey,1985-09-24,M,Site B,112,
+S0048,V. Rivera,1991-06-10,F,Site A,,
+S0049,W. Cooper,1980-03-05,M,Site C,106,
+S0050,X. Richardson,1993-10-22,F,Site B,121,
+S0051,Y. Cox,1987-01-11,M,Site A,98,
+S0052,Z. Howard,1982-05-29,F,Site C,113.4,
+S0053,A. Ward,1996-08-04,M,Site B,104,
+S0054,B. Torres,1984-04-17,F,Site A,109,
+S0055,C. Peterson,1989-12-01,M,Site C,117,
+S0056,D. Gray,1977-09-13,F,Site B,,follow-up required
+S0057,E. Ramirez,1995-02-26,M,Site A,100,
+S0058,F. James,1981-11-08,F,Site C,105.3,
+S0059,G. Watson,1990-07-15,U,Site B,111,
+S0060,H. Brooks,1986-03-21,M,Site A,102,
+
+- **Tool:** Google Gemini (Flash)
+- **Prompt 3 (verbatim):** Thank you. List every assumption or judgement call you made while cleaning, and any rows where you were unsure.
+- **Output (verbatim):**
+```python
+import pandas as pd
+import numpy as np
+
+# Reconstruct raw dataset from context & previous outputs to check exactly what assumptions were made
+
+# Let's inspect raw messy_samples.csv patterns or write down the exact assumptions made step-by-step
+# 1. sample_id: s-0001 -> S0001 (lowercasing, hyphens removed, padded to 4 digits)
+# 2. patient_name: converted to Title Case / normal capitalization ("A. Nguyen")
+# 3. dob: unified formats (YYYY-MM-DD), handling missing/NA
+# 4. sex: mapped m/male/M -> M, f/female/F -> F, u/unknown/blank/NA -> U
+# 5. enrollment_site: mapped site_a, SITE-A, siteA, site  b, etc. -> "Site A", "Site B", "Site C"
+# 6. glucose_mg_dl: converted mmol/L to mg/dL (x 18.0182 / 18.0), dropped asterisk flags (*), left missing as blank
+# 7. notes: left completely untouched/unchanged
+
+print("Done initializing inspection.")
+
+
+```
+
+Here is the list of assumptions, judgment calls, and specific rows with potential ambiguities from the cleaning process:
+
+---
+
+### **Assumptions & Judgment Calls Made**
+
+1. **`sample_id` Standardization**:
+* Assumed all sample IDs follow a single numerical index prefixed by `S`.
+
+
+* Stripped dashes/hyphens and leading/trailing whitespace, forced the prefix letter to uppercase `S`, and padded all numeric portions to exactly 4 digits with leading zeros (e.g., `s-1` or `s0001` $\rightarrow$ `S0001`).
+
+
+
+
+2. **`patient_name` Formatting**:
+* Assumed standard clinical name formatting consists of an uppercase initial, a period, a space, and a capitalized last name (e.g., `A. NGUYEN` or `b. smith` $\rightarrow$ `A. Nguyen`, `B. Smith`).
+
+
+
+
+3. **`dob` (Date of Birth) Normalization**:
+* Converted all valid date formats (`MM/DD/YYYY`, `DD-Mon-YYYY`, `YYYY-MM-DD`) into ISO standard `YYYY-MM-DD`.
+* For numeric date ambiguities (e.g., `01/02/1985`), assumed US date ordering (`MM/DD/YYYY`) across the dataset unless specified otherwise.
+* Standardized non-valid date strings (`N/A`, `unknown`, `missing`, empty strings) to blank/empty CSV entries (`""`).
+
+
+4. **`sex` Mapping**:
+* Mapped `Male`, `male`, `M`, `m` $\rightarrow$ `M`.
+
+
+* Mapped `Female`, `female`, `F`, `f` $\rightarrow$ `F`.
+
+
+* Mapped `U`, `unknown`, `missing`, or blank entries $\rightarrow$ `U` (Unknown/Unspecified).
+
+
+
+
+5. **`enrollment_site` Classification**:
+* Standardized variations in spacing, casing, and separators (`site_a`, `SITE-A`, `site  b`, `siteC`) into canonical strings: `"Site A"`, `"Site B"`, or `"Site C"`.
+
+
+
+
+6. **`glucose_mg_dl` Conversion & Extraction**:
+* Strip-cleaned annotation flags like asterisks (e.g., `110*` $\rightarrow$ `110`).
+
+
+* Converted values measured in `mmol/L` to `mg/dL` using the standard biological conversion factor ($\times 18.0182$ or $\approx \times 18.0$) and rounded to one decimal place where applicable.
+
+
+* **Plausibility Overrides**: Where entries had a value exceeding plausible `mmol/L` ranges while labeled as `mmol/L` (e.g., a glucose value of `104.4 mmol/L`), assumed the label was erroneous and treated the raw value as already recorded in `mg/dL`.
+
+
+* Cleared explicit missing strings (`N/A`, `missing`, `-`) to leave empty cells.
+
+
+
+
+7. **`notes` Field**:
+* Retained all original text, whitespace, and capitalization exactly as provided without modification.
+
+
+
+---
+
+### **Rows with Ambiguity or Uncertainty**
+
+* **`S0002`**: Recorded a numerical value of `104.4` labeled with `mmol/L` and a note stating `"mislabeled unit"`. A value of $104.4\text{ mmol/L}$ is physiologically incompatible with life (normal fasting plasma glucose is $\sim 3.9\text{--}5.5\text{ mmol/L}$). Assumed the value was already in $\text{mg/dL}$ and preserved `104.4` directly.
+
+
+* **`S0003`**: Had a blank/missing glucose entry accompanied by the note `"patient fasting status unclear"`. Preserved the missing numerical value rather than attempting imputation.
+
+
+* **`S0010`**: Missing glucose value with note `"repeat test needed"`. Left glucose blank.
+
+
+* **`S0017`**: Listed sex as missing/unknown and glucose as missing with note `"borderline high"`. Standardized sex to `U` and left glucose blank.
+
+
+* **`S0038`**: Glucose missing with note `"sample degraded"`. Left glucose blank.
+
+
+* **`S0056`**: Glucose missing with note `"follow-up required"`. Left glucose blank.
+
