@@ -1,0 +1,9 @@
+sample_id,organism,gene,declared_length_bp,note
+sample_001,Homo sapiens,BRCA1,120,
+sample_002,Homo sapiens,TP53,,
+sample_003,Homo sapiens,EGFR,150,
+sample_004,Homo sapiens,BRCA1,,
+sample_005,Homo sapiens,TP53,130,
+sample_006,Homo sapiens,EGFR,,
+sample_007,Homo sapiens,BRCA1,,re-sequenced
+sample_008,Homo sapiens,TP53,,
