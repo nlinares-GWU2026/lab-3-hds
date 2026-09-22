@@ -35,6 +35,11 @@ python src/build_analytic_table.py   # -> data/processed/samples_analytic.csv
 
 AI-assisted cleaning: prompts and raw model output are in `AI_USAGE.md`; outputs are `data/processed/samples_clean_ai.csv` and `data/processed/sequences_clean_ai.csv`.
 
+Compare the regex and AI-assisted output: 
+```bash
+python src/compare_outputs.py        # Output to terminal
+```
+
 Comparison and failure-mode analysis: `docs/COMPARISON.md`
 
 ## Project structure
@@ -50,17 +55,20 @@ lab-3-hds/
 │   ├── explore_sequences.py
 │   ├── clean_samples_regex.py
 │   ├── clean_sequences_regex.py
+|   ├── compare_outputs.py
 │   └── build_analytic_table.py
 ├── data/
 │   ├── raw/lab3-messy-data/
 |       ├── SOURCE.md
 |       ├── generate_data.py
 |       ├── messy_samples.csv
-|       ├── messy_sequences.fasta
+|       └── messy_sequences.fasta
 │   └── processed/
 |       ├── samples_analytic.csv
 |       ├── samples_clean_regex.csv
 |       ├── sequences_clean_regex.csv
+|       ├── sequences_clean_ai.cav
+|       └── samples_clean_ai.csv
 └── docs/
     └── COMPARISON.md
 ```
