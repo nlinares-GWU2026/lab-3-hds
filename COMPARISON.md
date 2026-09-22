@@ -1,7 +1,6 @@
 # Lab 3 Comparison: Regex vs. AI-Assisted Cleaning
 
 ## 1. What I did
-## 1. What I did
 - **Data:** `messy_samples.csv` (60 records) and `messy_sequences.fasta` (8 records). See `data/raw/lab3-messy-data/SOURCE.md`.
 - **Regex approach:** `src/clean_samples_regex.py` -> `data/processed/samples_clean_regex.csv` <and the FASTA equivalent>.
 - **AI approach:** Google Gemini Flash, prompts in `AI_USAGE.md` -> `data/processed/samples_clean_ai.csv` <and the FASTA equivalent>.
