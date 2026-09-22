@@ -50,6 +50,7 @@ Creates a FASTA file containing mock DNA sequence data with realistic header inc
 ### Execution
 
 When executed directly (`python generate_data.py`), it sets fixed random seeds (`seed=42` and `seed=7`) to deterministically produce the exact same two messy output files every time.
+
 **How I verified:** I eventually did run the script (see Entry 2) and the outputs Google Gemini told me to expect were created.
 
 ## Entry 2: How to run the `generate_data.py` script and check FASTA generated against professor's existing version
@@ -400,6 +401,7 @@ git push
 ```
 
 Once your output matches, tell me and we'll add the date function, which has the most decisions in it.
+
 **How I verified:** I manually typed out the code and added comments for what each block and regex function was doing. I also manually verified the output:
 ```
 07:56:01 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main✔|→ python src/clean_samples_regex.py
@@ -531,6 +533,7 @@ git push
 ```
 
 Next is glucose: the value, the `N/A` and `*` handling with the flag column, and the unit-plausibility logic we designed. Then we write the output table.
+
 **How I verified:** I manually typed out the code and added comments for what the block and regex function was doing. I also manually verified the output:
 ```
 08:18:20 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main✔|→ python src/clean_samples_regex.py
@@ -578,7 +581,9 @@ Site C    20
 Site A    19
 08:18:41 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main✔|→
 ```
+
 **What I asked next:** After pasting my output (above), I prompted Claude to finish the code with the glucose function because in the previous answer it claimed it was more of a complicated step. "Can you edit the current code you just sent to include the glucose function and explain what it does?"
+
 **Exact outout (verbatim):** 
 We can finish the regex script. Its last piece is glucose, plus writing the output table.
 
@@ -904,6 +909,7 @@ Records: 8
 6: a_9 a=a_a|a=a9|a:a-a
 7: a-9 a:a_a a:a9 a:a
 ```
+
 **What I asked next:** After I reviewed the output of the profiler script and analyzed the data, I asked Claude "Can you help me write a cleaner regex code script (like you did with the CSV) with the following assumptions on the data for the sequences:
 1. Sample ID: `sample_001` format to 3 digits.
 2. Organism: Keep the organism column named `organism` but more importantly expand the species to `Homo sapiens` (if it is H. or otherwise).
@@ -1224,6 +1230,140 @@ glucose_unit_original    0
 age_years range: 8 to 75
 
 Wrote 60 rows to data/processed/samples_analytic.csv
+```
+## Entry 8: Build small comparison tool to compare outputs
+
+**Tool:** Claude (Sonnet 5)
+
+**What I was doing:** I was at the stage of comparing the two outputs between my own regex and the AI. Instead of manually eyeballing the data side by side, I decided that having Claude right a small script would be more accurate and efficient. 
+
+**What I asked first:** "Can you write me a simple script that compares the outputs of these files? (attached the file path and the 4 files). 
+
+**Exact output (verbatim):** 
+```
+"""Diff the regex and AI-assisted outputs, row by row, for both files."""
+from pathlib import Path
+
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+PROC = ROOT / "data/processed"
+
+
+def diff_table(regex_path, ai_path, key, compare_cols, label):
+    regex = pd.read_csv(regex_path, dtype=str, keep_default_na=False).set_index(key)
+    ai = pd.read_csv(ai_path, dtype=str, keep_default_na=False).set_index(key)
+
+    print(f"=== {label} ===")
+    print(f"regex rows: {len(regex)}   ai rows: {len(ai)}")
+    only_regex = regex.index.difference(ai.index)
+    only_ai = ai.index.difference(regex.index)
+    if len(only_regex):
+        print("in regex only:", list(only_regex))
+    if len(only_ai):
+        print("in AI only:", list(only_ai))
+
+    shared = regex.index.intersection(ai.index)
+    n_diff_rows = 0
+    for idx in shared:
+        row_diffs = []
+        for col in compare_cols:
+            r_val = regex.loc[idx, col] if col in regex.columns else "<no column>"
+            a_val = ai.loc[idx, col] if col in ai.columns else "<no column>"
+            if r_val != a_val:
+                row_diffs.append(f"{col}: regex={r_val!r} ai={a_val!r}")
+        if row_diffs:
+            n_diff_rows += 1
+            print(f"{idx}: " + " | ".join(row_diffs))
+
+    print(f"{n_diff_rows} of {len(shared)} shared rows differ on at least one column\n")
+
+def diff_numeric(regex_path, ai_path, key, col, label, tol=0.05):
+    regex = pd.read_csv(regex_path, dtype=str, keep_default_na=False).set_index(key)
+    ai = pd.read_csv(ai_path, dtype=str, keep_default_na=False).set_index(key)
+    shared = regex.index.intersection(ai.index)
+
+    print(f"--- {label}: numeric comparison on '{col}' (tolerance ±{tol}) ---")
+    n_diff = 0
+    for idx in shared:
+        r_raw = regex.loc[idx, col] if col in regex.columns else ""
+        a_raw = ai.loc[idx, col] if col in ai.columns else ""
+        r_val = float(r_raw) if r_raw not in ("", None) else None
+        a_val = float(a_raw) if a_raw not in ("", None) else None
+        if r_val is None and a_val is None:
+            continue
+        if r_val is None or a_val is None or abs(r_val - a_val) > tol:
+            ratio = f"  (ai/regex = {a_val / r_val:.3f})" if r_val not in (None, 0) and a_val is not None else ""
+            print(f"{idx}: regex={r_val} ai={a_val}{ratio}")
+            n_diff += 1
+    print(f"{n_diff} of {len(shared)} shared rows differ on '{col}'\n")
+
+def main():
+    diff_table(
+        PROC / "samples_clean_regex.csv",
+        PROC / "samples_clean_ai.csv",
+        key="sample_id",
+        compare_cols=["patient_name", "dob", "sex", "enrollment_site", "notes"],
+        label="messy_samples.csv",
+    )
+    diff_numeric(
+        PROC / "samples_clean_regex.csv",
+        PROC / "samples_clean_ai.csv",
+        key="sample_id",
+        col="glucose_mg_dl",
+        label="messy_samples.csv",
+    )
+
+    diff_table(
+        PROC / "sequences_clean_regex.csv",
+        PROC / "sequences_clean_ai.csv",
+        key="sample_id",
+        compare_cols=["organism", "gene", "note"],
+        label="messy_sequences.fasta",
+    )
+    diff_numeric(
+        PROC / "sequences_clean_regex.csv",
+        PROC / "sequences_clean_ai.csv",
+        key="sample_id",
+        col="declared_length_bp",
+        label="messy_sequences.fasta",
+        tol=0.5,
+    )
+
+
+if __name__ == "__main__":
+    main()
+```
+
+**How I verified:** I typed out the script and ran it, then quickly manually verified the output and looked over my own files to ensure correctness: 
+Note: Across all 12 rows flagged `unit_label_implausable`, the AI applied a glucose conversion factor of 1.80182 rather than the stated 18.012 which is an exact factor of 10 error, confirmed by the exact reproduction of all 12 AI values. The regex approach avoided the error entirely by treating an unrealistically high mmol/L labelled value as already being in mg/dL, rather than trusting the unit label and converting it. 
+```
+11:23:17 (lab-3-hds) nelin@Nicole-ASUS lab-3-hds ±|main ✗|→ python src/compare_outputs.py
+=== messy_samples.csv ===
+regex rows: 60   ai rows: 60
+0 of 60 shared rows differ on at least one column
+
+--- messy_samples.csv: numeric comparison on 'glucose_mg_dl' (tolerance ±0.05) ---
+S0006: regex=141.2 ai=254.4  (ai/regex = 1.802)
+S0011: regex=99.7 ai=179.6  (ai/regex = 1.801)
+S0014: regex=133.8 ai=241.1  (ai/regex = 1.802)
+S0015: regex=150.8 ai=271.7  (ai/regex = 1.802)
+S0016: regex=112.5 ai=202.7  (ai/regex = 1.802)
+S0017: regex=249.2 ai=449.0  (ai/regex = 1.802)
+S0024: regex=169.5 ai=305.4  (ai/regex = 1.802)
+S0033: regex=105.0 ai=189.2  (ai/regex = 1.802)
+S0035: regex=225.1 ai=405.6  (ai/regex = 1.802)
+S0038: regex=157.4 ai=283.6  (ai/regex = 1.802)
+S0039: regex=74.9 ai=135.0  (ai/regex = 1.802)
+S0046: regex=128.5 ai=231.5  (ai/regex = 1.802)
+12 of 60 shared rows differ on 'glucose_mg_dl'
+
+=== messy_sequences.fasta ===
+regex rows: 8   ai rows: 8
+0 of 8 shared rows differ on at least one column
+
+--- messy_sequences.fasta: numeric comparison on 'declared_length_bp' (tolerance ±0.5) ---
+0 of 8 shared rows differ on 'declared_length_bp'
 ```
 
 # AI ASSISTED CLEANING - EXPLICIT PROMPT AND OUTPUT
