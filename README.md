@@ -24,7 +24,7 @@ Regex-based cleaning:
 
 ```bash
 python src/clean_samples_regex.py    # -> data/processed/samples_clean_regex.csv
-python src/clean_sequencesregex.py   # -> data/processed/sequences_clean_regex.csv
+python src/clean_sequences_regex.py   # -> data/processed/sequences_clean_regex.csv
 ```
 
 Build the samples x features x metadata table (graduate addendum):
@@ -67,7 +67,7 @@ lab-3-hds/
 |       ├── samples_analytic.csv
 |       ├── samples_clean_regex.csv
 |       ├── sequences_clean_regex.csv
-|       ├── sequences_clean_ai.cav
+|       ├── sequences_clean_ai.csv
 |       └── samples_clean_ai.csv
 └── docs/
     └── COMPARISON.md
